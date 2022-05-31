@@ -6,6 +6,8 @@ import os
 from typing import List, Dict  # , Set, , Tuple, Optional
 from datetime import datetime
 from pathlib import Path
+from abc import ABC, abstractmethod
+from typing import ForwardRef
 
 
 class Run():
@@ -25,19 +27,58 @@ class Run():
         return (self.end_time - self.start_time).total_seconds()
 
 
+StarBencher = ForwardRef('StarBencher')
+
+
+class IStarBencherStopCondition(ABC):
+
+    @abstractmethod
+    def should_stop(self, star_bencher: StarBencher):
+        pass
+
+
+class StopAfterSingleRun(IStarBencherStopCondition):
+
+    def __init__(self):
+        pass
+
+    def should_stop(self, star_bencher: StarBencher):
+        # never start a new run
+        return True
+
+
+class StopWhenConverged(IStarBencherStopCondition):
+
+    def __init__(self, max_error: float = 0.01):
+        self.max_error = max_error
+        self._last_mean_duration = None
+
+    def should_stop(self, star_bencher: StarBencher):
+        do_stop = False
+        mean_duration, num_runs = star_bencher._get_run_mean_duration()
+        print('mean_duration = %f' % mean_duration)
+        if self._last_mean_duration is not None:
+            diff = abs(mean_duration - self._last_mean_duration)
+            print('diff = %f' % diff)
+            if diff < self.max_error:
+                do_stop = True
+        self._last_mean_duration = mean_duration
+        return do_stop
+
+
 class StarBencher():
     '''
     the 'star' term comes from hpl's stadgemm benchmark, where we launch `n` independent programs on `n cores`
     '''
 
-    def __init__(self, run_command: List[str], num_cores_per_run: int, num_parallel_runs: int, max_num_cores: int, max_error: float = 0.01, stop_on_error=True, run_command_cwd: Path = None):
+    def __init__(self, run_command: List[str], num_cores_per_run: int, num_parallel_runs: int, max_num_cores: int, stop_condition: IStarBencherStopCondition, stop_on_error=True, run_command_cwd: Path = None):
         assert num_cores_per_run * num_parallel_runs <= max_num_cores
         self.run_command: List[str] = run_command
         self.run_command_cwd = run_command_cwd
         self.num_cores_per_run = num_cores_per_run
         self.num_parallel_runs = num_parallel_runs
         self.max_num_cores: int = max_num_cores
-        self.max_error: float = max_error
+        self.stop_condition: IStarBencherStopCondition = stop_condition
         self.stop_on_error = stop_on_error
         self._next_run_id: int = 0
         self._runs: Dict(int, Run) = {}
@@ -94,15 +135,7 @@ class StarBencher():
         if self.stop_on_error and run.return_code != 0:
             do_stop = True
         else:
-            mean_duration, num_runs = self._get_run_mean_duration()
-            print('mean_duration = %f' % mean_duration)
-            if self._last_mean_duration is not None:
-                diff = abs(mean_duration - self._last_mean_duration)
-                print('diff = %f' % diff)
-                if diff < self.max_error:
-                    do_stop = True
-                    self._num_runs = num_runs
-            self._last_mean_duration = mean_duration
+            do_stop = self.stop_condition.should_stop(self)
         if not do_stop:
             print('adding a run')
             self._start_run()
@@ -126,9 +159,10 @@ class StarBencher():
         with self._runs_lock:
             if not all([run.return_code == 0 for run in self._runs.values()]):
                 raise Exception('at least one run failed')
-        print('mean duration : %.3f s (%d runs)' % (self._last_mean_duration, self._num_runs))
+        mean_duration, num_runs = self._get_run_mean_duration()
+        print('mean duration : %.3f s (%d runs)' % (mean_duration, num_runs))
         print('finished')
-        return self._last_mean_duration
+        return mean_duration
 
 
 def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, github_username: str, github_personal_access_token: str):
@@ -138,12 +172,15 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
     src_dir = tmp_dir / 'hibridon'
     subprocess.run(['git', 'checkout', '%s' % (hibridon_version)], cwd=src_dir)
     assert src_dir.exists()
+
     for compiler in ['gfortran']:  # , 'ifort']:
         build_dir = tmp_dir / compiler
         build_dir.mkdir(exist_ok=True)
         subprocess.run(['cmake', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_TESTING=ON', src_dir], cwd=build_dir)
         subprocess.run(['make'], cwd=build_dir)
-        bench = StarBencher(run_command=['ctest', '-L', '^arch4_quick$'], num_cores_per_run=1, num_parallel_runs=num_cores, max_num_cores=num_cores, max_error=0.0001, run_command_cwd=build_dir)
+
+        stop_condition = StopAfterSingleRun()
+        bench = StarBencher(run_command=['ctest', '--output-on-failure', '-L', '^arch4_quick$'], num_cores_per_run=1, num_parallel_runs=num_cores, max_num_cores=num_cores, stop_condition=stop_condition, run_command_cwd=build_dir)
         mean_duration = bench.run()
         print('duration for compiler %s : %.3f s' % (compiler, mean_duration))
 
@@ -159,7 +196,9 @@ if __name__ == '__main__':
         measure_hibridon_perf(hibridon_version, tmp_dir, num_cores=2, github_username=github_username, github_personal_access_token=github_personal_access_token)
 
     if False:
-        bench = StarBencher(run_command=['sleep', '0.1415927'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, max_error=0.0001)
+        stop_condition = StopAfterSingleRun()
+        # stop_condition = StopWhenConverged(max_error=0.0001)
+        bench = StarBencher(run_command=['sleep', '0.1415927'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, stop_condition=stop_condition)
         mean_duration = bench.run()
 
     if False:
