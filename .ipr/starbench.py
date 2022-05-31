@@ -98,7 +98,6 @@ class StarBencher():
         would give to subprocess.Popen.
         """
         def run_in_thread(popen_args, on_exit):
-            print('popen_args', popen_args)
             stdout = None
             stderr = None
             if stdout_filepath is not None:
@@ -150,14 +149,13 @@ class StarBencher():
         else:
             do_stop = self.stop_condition.should_stop(self)
         if not do_stop:
-            print('adding a run')
+            # print('adding a run')
             self._start_run(run.worker_id)  # reuse the same worker as the run that has just finished
         if self._all_runs_have_finished():
             # tell the main thread that all the runs have finished
             self._finished_event.set()
 
     def _start_run(self, worker_id: int):
-        print(self.run_command)
         worker_as_str = '%03d' % worker_id
         run_command = [str(s).replace('<worker_id>', worker_as_str) for s in self.run_command]
         run_command_cwd = str(self.run_command_cwd).replace('<worker_id>', worker_as_str)
@@ -184,7 +182,6 @@ class StarBencher():
                 raise Exception('at least one run failed')
         mean_duration, num_runs = self._get_run_mean_duration()
         print('mean duration : %.3f s (%d runs)' % (mean_duration, num_runs))
-        print('finished')
         return mean_duration
 
 
@@ -199,6 +196,7 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
     for compiler in ['gfortran']:  # , 'ifort']:
         # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomkly fail depnding on race conditions
         build_dir = tmp_dir / compiler / 'worker<worker_id>'
+        print('creating build directory %s' % build_dir)
         create_build_dir = StarBencher(
             run_command=['mkdir', '-p', build_dir],
             num_cores_per_run=1,
@@ -210,6 +208,7 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
         create_build_dir_duration = create_build_dir.run()  # noqa: F841
         # build_dir.mkdir(exist_ok=True)
 
+        print('configuring %s into %s ...' % (src_dir, build_dir))
         configure = StarBencher(
             run_command=['cmake', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_TESTING=ON', src_dir],
             num_cores_per_run=1,
@@ -221,6 +220,7 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
             stderr_filepath=build_dir / 'configure_stderr.txt')
         configure_duration = configure.run()  # noqa: F841
 
+        print('building %s ...' % (build_dir))
         build = StarBencher(
             run_command=['make'],
             num_cores_per_run=1,
@@ -232,6 +232,7 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
             stderr_filepath=build_dir / 'build_stderr.txt')
         build_duration = build.run()  # noqa: F841
 
+        print('benchmarking %s ...' % (build_dir))
         stop_condition = StopAfterSingleRun()
         bench = StarBencher(
             run_command=['ctest', '--output-on-failure', '-L', '^arch4_quick$'],
