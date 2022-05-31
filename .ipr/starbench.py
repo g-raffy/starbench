@@ -3,7 +3,7 @@
 import threading
 import subprocess
 import os
-from typing import List, Dict  # , Set, , Tuple, Optional
+from typing import List, Dict, IO  # , Set, , Tuple, Optional
 from datetime import datetime
 from pathlib import Path
 from abc import ABC, abstractmethod
@@ -72,10 +72,12 @@ class StarBencher():
     the 'star' term comes from hpl's stadgemm benchmark, where we launch `n` independent programs on `n cores`
     '''
 
-    def __init__(self, run_command: List[str], num_cores_per_run: int, num_parallel_runs: int, max_num_cores: int, stop_condition: IStarBencherStopCondition, stop_on_error=True, run_command_cwd: Path = None):
+    def __init__(self, run_command: List[str], num_cores_per_run: int, num_parallel_runs: int, max_num_cores: int, stop_condition: IStarBencherStopCondition, stop_on_error=True, run_command_cwd: Path = None, stdout_filepath: Path = None, stderr_filepath: Path = None):
         assert num_cores_per_run * num_parallel_runs <= max_num_cores
         self.run_command: List[str] = run_command
         self.run_command_cwd = run_command_cwd
+        self.stdout_filepath = stdout_filepath
+        self.stderr_filepath = stderr_filepath
         self.num_cores_per_run = num_cores_per_run
         self.num_parallel_runs = num_parallel_runs
         self.max_num_cores: int = max_num_cores
@@ -88,7 +90,7 @@ class StarBencher():
         self._runs_lock = threading.Lock()
         self._finished_event = threading.Event()
 
-    def popen_and_call(self, popen_args, on_exit, run_id: int, cwd: Path):
+    def popen_and_call(self, popen_args, on_exit, run_id: int, cwd: Path, stdout_filepath: Path = None, stderr_filepath: Path = None):
         """
         Runs the given args in a subprocess.Popen, and then calls the function
         on_exit when the subprocess completes.
@@ -97,9 +99,18 @@ class StarBencher():
         """
         def run_in_thread(popen_args, on_exit):
             print('popen_args', popen_args)
-            proc = subprocess.Popen(popen_args, cwd=cwd)
-            print('coucou')
+            stdout = None
+            stderr = None
+            if stdout_filepath is not None:
+                stdout = open(stdout_filepath, 'w')
+            if stderr_filepath is not None:
+                stderr = open(stderr_filepath, 'w')
+            proc = subprocess.Popen(popen_args, cwd=cwd, stdout=stdout, stderr=stderr)
             proc.wait()
+            if stderr is not None:
+                stderr.close()
+            if stdout is not None:
+                stdout.close()
             on_exit(proc.pid, proc.returncode, run_id)
             return
         thread = threading.Thread(target=run_in_thread, args=(popen_args, on_exit))
@@ -150,10 +161,17 @@ class StarBencher():
         worker_as_str = '%03d' % worker_id
         run_command = [str(s).replace('<worker_id>', worker_as_str) for s in self.run_command]
         run_command_cwd = str(self.run_command_cwd).replace('<worker_id>', worker_as_str)
+        stdout_filepath = None
+        if self.stdout_filepath is not None:
+            stdout_filepath = str(self.stdout_filepath).replace('<worker_id>', worker_as_str)
+        stderr_filepath = None
+        if self.stderr_filepath is not None:
+            stderr_filepath = str(self.stderr_filepath).replace('<worker_id>', worker_as_str)
+        run_command_cwd = str(self.run_command_cwd).replace('<worker_id>', worker_as_str)
         with self._runs_lock:
             run = Run(self._next_run_id, worker_id)
             self._next_run_id += 1
-            run_thread = self.popen_and_call(popen_args=run_command, on_exit=self.on_exit, run_id=run.id, cwd=run_command_cwd)  # noqa:F841
+            run_thread = self.popen_and_call(popen_args=run_command, on_exit=self.on_exit, run_id=run.id, cwd=run_command_cwd, stdout_filepath=stdout_filepath, stderr_filepath=stderr_filepath)  # noqa:F841
             self._runs[run.id] = run
 
     def run(self):
@@ -187,7 +205,8 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
             num_parallel_runs=num_cores,
             max_num_cores=num_cores,
             stop_condition=StopAfterSingleRun(),
-            run_command_cwd=Path('/tmp'))
+            run_command_cwd=Path('/tmp'),
+            stdout_filepath=build_dir / 'create_build_dir_stdout.txt')
         create_build_dir_duration = create_build_dir.run()  # noqa: F841
         # build_dir.mkdir(exist_ok=True)
 
@@ -197,7 +216,9 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
             num_parallel_runs=num_cores,
             max_num_cores=num_cores,
             stop_condition=StopAfterSingleRun(),
-            run_command_cwd=build_dir)
+            run_command_cwd=build_dir,
+            stdout_filepath=build_dir / 'configure_stdout.txt',
+            stderr_filepath=build_dir / 'configure_stderr.txt')
         configure_duration = configure.run()  # noqa: F841
 
         build = StarBencher(
@@ -206,7 +227,9 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
             num_parallel_runs=num_cores,
             max_num_cores=num_cores,
             stop_condition=StopAfterSingleRun(),
-            run_command_cwd=build_dir)
+            run_command_cwd=build_dir,
+            stdout_filepath=build_dir / 'build_stdout.txt',
+            stderr_filepath=build_dir / 'build_stderr.txt')
         build_duration = build.run()  # noqa: F841
 
         stop_condition = StopAfterSingleRun()
@@ -216,7 +239,9 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
             num_parallel_runs=num_cores,
             max_num_cores=num_cores,
             stop_condition=stop_condition,
-            run_command_cwd=build_dir)
+            run_command_cwd=build_dir,
+            stdout_filepath=build_dir / 'bench_stdout.txt',
+            stderr_filepath=build_dir / 'bench_stderr.txt')
         mean_duration = bench.run()
         print('duration for compiler %s : %.3f s' % (compiler, mean_duration))
 
@@ -226,7 +251,7 @@ if __name__ == '__main__':
         github_username = 'g-raffy'  # os.environ['HIBRIDON_REPOS_USER']
         with open('%s/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat' % os.environ['HOME'], 'r') as f:
             github_personal_access_token = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
-        print('coucou', github_personal_access_token[-1])
+        # print('coucou', github_personal_access_token[-1])
         hibridon_version = '02aeb2c2da5ebe0f7301c9909aa623864e562c71'
         tmp_dir = Path('/tmp/hibridon_perf')
         measure_hibridon_perf(hibridon_version, tmp_dir, num_cores=2, github_username=github_username, github_personal_access_token=github_personal_access_token)
