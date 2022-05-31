@@ -12,8 +12,9 @@ from typing import ForwardRef
 
 class Run():
 
-    def __init__(self, run_id: int):
+    def __init__(self, run_id: int, worker_id: int):
         self.id = run_id
+        self.worker_id = worker_id  # the worker used for this run (number of workers = number of parallel runs)
         self.pid = None
         self.return_code = 0
         self.start_time = datetime.now()
@@ -131,6 +132,7 @@ class StarBencher():
         run.pid = pid
         run.end_time = end_time
         run.return_code = return_code
+
         do_stop = False
         if self.stop_on_error and run.return_code != 0:
             do_stop = True
@@ -138,22 +140,25 @@ class StarBencher():
             do_stop = self.stop_condition.should_stop(self)
         if not do_stop:
             print('adding a run')
-            self._start_run()
+            self._start_run(run.worker_id)  # reuse the same worker as the run that has just finished
         if self._all_runs_have_finished():
             # tell the main thread that all the runs have finished
             self._finished_event.set()
 
-    def _start_run(self):
+    def _start_run(self, worker_id: int):
         print(self.run_command)
+        worker_as_str = '%03d' % worker_id
+        run_command = [str(s).replace('<worker_id>', worker_as_str) for s in self.run_command]
+        run_command_cwd = str(self.run_command_cwd).replace('<worker_id>', worker_as_str)
         with self._runs_lock:
-            run = Run(self._next_run_id)
+            run = Run(self._next_run_id, worker_id)
             self._next_run_id += 1
-            run_thread = self.popen_and_call(popen_args=self.run_command, on_exit=self.on_exit, run_id=run.id, cwd=self.run_command_cwd)  # noqa:F841
+            run_thread = self.popen_and_call(popen_args=run_command, on_exit=self.on_exit, run_id=run.id, cwd=run_command_cwd)  # noqa:F841
             self._runs[run.id] = run
 
     def run(self):
-        for run_index in range(self.num_parallel_runs):
-            self._start_run()
+        for worker_id in range(self.num_parallel_runs):
+            self._start_run(worker_id)
         # wait until all runs have finished
         self._finished_event.wait()
         with self._runs_lock:
@@ -174,13 +179,44 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
     assert src_dir.exists()
 
     for compiler in ['gfortran']:  # , 'ifort']:
-        build_dir = tmp_dir / compiler
-        build_dir.mkdir(exist_ok=True)
-        subprocess.run(['cmake', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_TESTING=ON', src_dir], cwd=build_dir)
-        subprocess.run(['make'], cwd=build_dir)
+        # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomkly fail depnding on race conditions
+        build_dir = tmp_dir / compiler / 'worker<worker_id>'
+        create_build_dir = StarBencher(
+            run_command=['mkdir', '-p', build_dir],
+            num_cores_per_run=1,
+            num_parallel_runs=num_cores,
+            max_num_cores=num_cores,
+            stop_condition=StopAfterSingleRun(),
+            run_command_cwd=Path('/tmp'))
+        create_build_dir_duration = create_build_dir.run()  # noqa: F841
+        # build_dir.mkdir(exist_ok=True)
+
+        configure = StarBencher(
+            run_command=['cmake', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_TESTING=ON', src_dir],
+            num_cores_per_run=1,
+            num_parallel_runs=num_cores,
+            max_num_cores=num_cores,
+            stop_condition=StopAfterSingleRun(),
+            run_command_cwd=build_dir)
+        configure_duration = configure.run()  # noqa: F841
+
+        build = StarBencher(
+            run_command=['make'],
+            num_cores_per_run=1,
+            num_parallel_runs=num_cores,
+            max_num_cores=num_cores,
+            stop_condition=StopAfterSingleRun(),
+            run_command_cwd=build_dir)
+        build_duration = build.run()  # noqa: F841
 
         stop_condition = StopAfterSingleRun()
-        bench = StarBencher(run_command=['ctest', '--output-on-failure', '-L', '^arch4_quick$'], num_cores_per_run=1, num_parallel_runs=num_cores, max_num_cores=num_cores, stop_condition=stop_condition, run_command_cwd=build_dir)
+        bench = StarBencher(
+            run_command=['ctest', '--output-on-failure', '-L', '^arch4_quick$'],
+            num_cores_per_run=1,
+            num_parallel_runs=num_cores,
+            max_num_cores=num_cores,
+            stop_condition=stop_condition,
+            run_command_cwd=build_dir)
         mean_duration = bench.run()
         print('duration for compiler %s : %.3f s' % (compiler, mean_duration))
 
