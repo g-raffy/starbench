@@ -104,7 +104,12 @@ class StarBencher():
                 stdout = open(stdout_filepath, 'w')
             if stderr_filepath is not None:
                 stderr = open(stderr_filepath, 'w')
-            proc = subprocess.Popen(popen_args, cwd=cwd, stdout=stdout, stderr=stderr)
+            env = os.environ.copy()
+            # restrict the number of threads used by openmp
+            env['OMP_NUM_THREADS'] = '%d' % self.num_cores_per_run
+            # restrict the nu,ber of threads used by intel math kernel library
+            env['MKL_NUM_THREADS'] = '%d' % self.num_cores_per_run
+            proc = subprocess.Popen(popen_args, cwd=cwd, stdout=stdout, stderr=stderr, env=env)
             proc.wait()
             if stderr is not None:
                 stderr.close()
