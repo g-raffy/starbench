@@ -190,6 +190,7 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
     hibridon_git_url = 'https://%s:%s@github.com/hibridon/hibridon' % (github_username, github_personal_access_token)
     subprocess.run(['git', 'clone', '%s' % (hibridon_git_url)], cwd=tmp_dir)
     src_dir = tmp_dir / 'hibridon'
+    src_dir.mkdir(exist_ok=True)
     subprocess.run(['git', 'checkout', '%s' % (hibridon_version)], cwd=src_dir)
     assert src_dir.exists()
 
@@ -204,7 +205,7 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
             max_num_cores=num_cores,
             stop_condition=StopAfterSingleRun(),
             run_command_cwd=Path('/tmp'),
-            stdout_filepath=build_dir / 'create_build_dir_stdout.txt')
+            stdout_filepath=None)
         create_build_dir_duration = create_build_dir.run()  # noqa: F841
         # build_dir.mkdir(exist_ok=True)
 
