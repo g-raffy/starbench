@@ -190,7 +190,10 @@ class StarBencher():
         return mean_duration
 
 
-def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, github_username: str, github_personal_access_token: str):
+def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, github_username: str, github_personal_access_token: str, tests_to_run: str):
+    """
+    tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
+    """
     tmp_dir.mkdir(exist_ok=True)
     hibridon_git_url = 'https://%s:%s@github.com/hibridon/hibridon' % (github_username, github_personal_access_token)
     subprocess.run(['git', 'clone', '%s' % (hibridon_git_url)], cwd=tmp_dir)
@@ -241,7 +244,7 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
         print('benchmarking %s ...' % (build_dir))
         stop_condition = StopAfterSingleRun()
         bench = StarBencher(
-            run_command=['ctest', '--output-on-failure', '-L', '^arch4_quick$'],
+            run_command=['ctest', '--output-on-failure', '-L', tests_to_run],
             num_cores_per_run=1,
             num_parallel_runs=num_cores,
             max_num_cores=num_cores,
@@ -259,9 +262,14 @@ if __name__ == '__main__':
         with open('%s/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat' % os.environ['HOME'], 'r') as f:
             github_personal_access_token = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
         # print('coucou', github_personal_access_token[-1])
-        hibridon_version = '02aeb2c2da5ebe0f7301c9909aa623864e562c71'
-        tmp_dir = Path('/tmp/hibridon_perf')
-        measure_hibridon_perf(hibridon_version, tmp_dir, num_cores=2, github_username=github_username, github_personal_access_token=github_personal_access_token)
+        quick_test = '^arch4_quick$'  # about 2s on a core i5 8th generation
+        benchmark_test = '^nh3h2_qma_long$'  # about 10min on a core i5 8th generation
+        hibridon_versions_to_test = []
+        hibridon_versions_to_test.append('a3bed1c3ccfbca572003020d3e3d3b1ff3934fad')  # latest from branch master as of 01/06/2022 12:52
+        hibridon_versions_to_test.append('775048db02dfb317d5eaddb6d6db520be71a2fdf')  # latest from branch graffy-issue51 as of 01/06/2022 12:52
+        for hibridon_version in hibridon_versions_to_test:
+            tmp_dir = Path('/tmp/hibridon_perf/%s' % hibridon_version)
+            measure_hibridon_perf(hibridon_version, tmp_dir, num_cores=1, github_username=github_username, github_personal_access_token=github_personal_access_token, tests_to_run=quick_test)
 
     if False:
         stop_condition = StopAfterSingleRun()
