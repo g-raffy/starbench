@@ -225,58 +225,57 @@ def measure_hibridon_perf(git_repos_url: str, code_version: str, tmp_dir: Path, 
     if code_version:
         subprocess.run(['git', 'checkout', '%s' % (code_version)], cwd=src_dir, check=True)
 
-    for compiler in ['gfortran']:  # , 'ifort']:
-        # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
-        build_dir = tmp_dir / compiler / 'worker<worker_id>'
-        print('creating build directory %s' % build_dir)
-        create_build_dir = StarBencher(
-            run_command=['mkdir', '-p', build_dir],
-            num_cores_per_run=1,
-            num_parallel_runs=num_cores,
-            max_num_cores=num_cores,
-            stop_condition=StopAfterSingleRun(),
-            run_command_cwd=Path('/tmp'),
-            stdout_filepath=None)
-        create_build_dir_duration = create_build_dir.run()  # noqa: F841
-        # build_dir.mkdir(exist_ok=True)
+    # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
+    build_dir = tmp_dir / 'worker<worker_id>'
+    print('creating build directory %s' % build_dir)
+    create_build_dir = StarBencher(
+        run_command=['mkdir', '-p', build_dir],
+        num_cores_per_run=1,
+        num_parallel_runs=num_cores,
+        max_num_cores=num_cores,
+        stop_condition=StopAfterSingleRun(),
+        run_command_cwd=Path('/tmp'),
+        stdout_filepath=None)
+    create_build_dir_duration = create_build_dir.run()  # noqa: F841
+    # build_dir.mkdir(exist_ok=True)
 
-        print('configuring %s into %s ...' % (src_dir, build_dir))
-        configure = StarBencher(
-            run_command=['cmake'] + cmake_options + [src_dir],
-            num_cores_per_run=1,
-            num_parallel_runs=num_cores,
-            max_num_cores=num_cores,
-            stop_condition=StopAfterSingleRun(),
-            run_command_cwd=build_dir,
-            stdout_filepath=build_dir / 'configure_stdout.txt',
-            stderr_filepath=build_dir / 'configure_stderr.txt')
-        configure_duration = configure.run()  # noqa: F841
+    print('configuring %s into %s ...' % (src_dir, build_dir))
+    configure = StarBencher(
+        run_command=['cmake'] + cmake_options + [src_dir],
+        num_cores_per_run=1,
+        num_parallel_runs=num_cores,
+        max_num_cores=num_cores,
+        stop_condition=StopAfterSingleRun(),
+        run_command_cwd=build_dir,
+        stdout_filepath=build_dir / 'configure_stdout.txt',
+        stderr_filepath=build_dir / 'configure_stderr.txt')
+    configure_duration = configure.run()  # noqa: F841
 
-        print('building %s ...' % (build_dir))
-        build = StarBencher(
-            run_command=['make'],
-            num_cores_per_run=1,
-            num_parallel_runs=num_cores,
-            max_num_cores=num_cores,
-            stop_condition=StopAfterSingleRun(),
-            run_command_cwd=build_dir,
-            stdout_filepath=build_dir / 'build_stdout.txt',
-            stderr_filepath=build_dir / 'build_stderr.txt')
-        build_duration = build.run()  # noqa: F841
+    print('building %s ...' % (build_dir))
+    build = StarBencher(
+        run_command=['make'],
+        num_cores_per_run=1,
+        num_parallel_runs=num_cores,
+        max_num_cores=num_cores,
+        stop_condition=StopAfterSingleRun(),
+        run_command_cwd=build_dir,
+        stdout_filepath=build_dir / 'build_stdout.txt',
+        stderr_filepath=build_dir / 'build_stderr.txt')
+    build_duration = build.run()  # noqa: F841
 
-        print('benchmarking %s ...' % (build_dir))
-        stop_condition = StopAfterSingleRun()
-        bench = StarBencher(
-            run_command=['ctest', '--output-on-failure', '-L', tests_to_run],
-            num_cores_per_run=1,
-            num_parallel_runs=num_cores,
-            max_num_cores=num_cores,
-            stop_condition=stop_condition,
-            run_command_cwd=build_dir,
-            stdout_filepath=build_dir / 'bench_stdout.txt',
-            stderr_filepath=build_dir / 'bench_stderr.txt')
-        mean_duration = bench.run()
-        print('duration for compiler %s : %.3f s' % (compiler, mean_duration))
+    print('benchmarking %s ...' % (build_dir))
+    stop_condition = StopAfterSingleRun()
+    bench = StarBencher(
+        run_command=['ctest', '--output-on-failure', '-L', tests_to_run],
+        num_cores_per_run=1,
+        num_parallel_runs=num_cores,
+        max_num_cores=num_cores,
+        stop_condition=stop_condition,
+        run_command_cwd=build_dir,
+        stdout_filepath=build_dir / 'bench_stdout.txt',
+        stderr_filepath=build_dir / 'bench_stderr.txt')
+    mean_duration = bench.run()
+    print('duration : %.3f s' % (mean_duration))
 
 
 if __name__ == '__main__':
