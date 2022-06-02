@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# this script performs a performance benchmark of hibridon using ipr (Institut de Physique de Rennes)'s cluster
+# this script performs a performance benchmark of hibridon
+import argparse
 import threading
 import subprocess
 import os
@@ -190,17 +191,38 @@ class StarBencher():
         return mean_duration
 
 
-def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, github_username: str, github_personal_access_token: str, tests_to_run: str):
+def test_starbencher():
+    if False:
+        stop_condition = StopAfterSingleRun()
+        # stop_condition = StopWhenConverged(max_error=0.0001)
+        bench = StarBencher(run_command=['sleep', '0.1415927'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, stop_condition=stop_condition)
+        mean_duration = bench.run()
+        print(mean_duration)
+
+    if False:
+        bench = StarBencher(run_command=['ls', '/tmp'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, max_error=0.0001)
+        mean_duration = bench.run()
+        print(mean_duration)
+
+# end of starbencher
+
+
+def measure_hibridon_perf(git_repos_url: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, tests_to_run: str, hibridon_version: str = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
     tmp_dir.mkdir(exist_ok=True)
-    hibridon_git_url = 'https://%s:%s@github.com/hibridon/hibridon' % (github_username, github_personal_access_token)
-    subprocess.run(['git', 'clone', '%s' % (hibridon_git_url)], cwd=tmp_dir)
+    git_credentials = []
+    if git_user:
+        git_credentials.append(git_user)
+    if git_password:
+        git_credentials.append(git_password)
+    if len(git_credentials) != 0:
+        git_repos_url = git_repos_url.replace('https://', 'https://%s@' % ':'.join(git_credentials))
     src_dir = tmp_dir / 'hibridon'
     src_dir.mkdir(exist_ok=True)
-    subprocess.run(['git', 'checkout', '%s' % (hibridon_version)], cwd=src_dir)
-    assert src_dir.exists()
+    subprocess.run(['git', 'clone', '%s' % (git_repos_url)], cwd=tmp_dir)
+    # subprocess.run(['git', 'checkout', '%s' % (hibridon_version)], cwd=src_dir)
 
     for compiler in ['gfortran']:  # , 'ifort']:
         # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomkly fail depnding on race conditions
@@ -257,26 +279,33 @@ def measure_hibridon_perf(hibridon_version: str, tmp_dir: Path, num_cores: int, 
 
 
 if __name__ == '__main__':
-    if True:
-        github_username = 'g-raffy'  # os.environ['HIBRIDON_REPOS_USER']
-        with open('%s/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat' % os.environ['HOME'], 'r') as f:
-            github_personal_access_token = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
-        # print('coucou', github_personal_access_token[-1])
-        quick_test = '^arch4_quick$'  # about 2s on a core i5 8th generation
-        benchmark_test = '^nh3h2_qma_long$'  # about 10min on a core i5 8th generation
-        hibridon_versions_to_test = []
-        hibridon_versions_to_test.append('a3bed1c3ccfbca572003020d3e3d3b1ff3934fad')  # latest from branch master as of 01/06/2022 12:52
-        hibridon_versions_to_test.append('775048db02dfb317d5eaddb6d6db520be71a2fdf')  # latest from branch graffy-issue51 as of 01/06/2022 12:52
-        for hibridon_version in hibridon_versions_to_test:
-            tmp_dir = Path('/tmp/hibridon_perf/%s' % hibridon_version)
-            measure_hibridon_perf(hibridon_version, tmp_dir, num_cores=1, github_username=github_username, github_personal_access_token=github_personal_access_token, tests_to_run=quick_test)
 
-    if False:
-        stop_condition = StopAfterSingleRun()
-        # stop_condition = StopWhenConverged(max_error=0.0001)
-        bench = StarBencher(run_command=['sleep', '0.1415927'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, stop_condition=stop_condition)
-        mean_duration = bench.run()
+    example_text = '''example:
 
-    if False:
-        bench = StarBencher(run_command=['ls', '/tmp'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, max_error=0.0001)
-        mean_duration = bench.run()
+    %(prog)s --git-repos-url https://github.com/hibridon/hibridon --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench
+
+    '''
+
+    parser = argparse.ArgumentParser(description='performs a hibridon benchmark', epilog=example_text, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--git-repos-url', required=True, help='the url of the code to benchmark (eg https://github.com/hibridon/hibridon/a3bed1c3ccfbca572003020d3e3d3b1ff3934fad)')
+    parser.add_argument('--git-user', help='the git user to use to clone the code repository')
+    password_group = parser.add_mutually_exclusive_group()
+    password_group.add_argument('--git-pass-file', help='the path to a file containing the password (or personal access token)')
+    password_group.add_argument('--git-pass', type=str, help='the password (or personal access token) to use (not recommended for security reasons)')
+    parser.add_argument('--num-cores', type=int, required=True, help='the number of cores that the benchmark will use')
+    parser.add_argument('--output-dir', type=Path, required=True, help='where the output files will be placed')
+    args = parser.parse_args()
+
+    git_user = args.git_user
+    git_repos_url = args.git_repos_url
+
+    git_password = None
+    if args.git_pass:
+        git_password = args.git_pass
+    elif args.git_pass_file:
+        with open(args.git_pass_file, 'r') as f:
+            git_password = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
+
+    quick_test = '^arch4_quick$'  # about 2s on a core i5 8th generation
+    benchmark_test = '^nh3h2_qma_long$'  # about 10min on a core i5 8th generation
+    measure_hibridon_perf(git_repos_url=git_repos_url, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, tests_to_run=quick_test)

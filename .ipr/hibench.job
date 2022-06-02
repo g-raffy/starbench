@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+github_username='g-raffy'  # os.environ['HIBRIDON_REPOS_USER']
+hibridon_version='a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'  # latest from branch master as of 01/06/2022 12:52
+# hibridon_version='775048db02dfb317d5eaddb6d6db520be71a2fdf'  # latest from branch graffy-issue51 as of 01/06/
+hibridon_repos_url="https://github.com/hibridon/hibridon/${hibridon_version}"
+pat_file_path="$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"
+output_dir="/tmp/hibridon_perf/${hibridon_version}"
+
+hibench.py --git-repos-url ${hibridon_repos_url} --git-user ${github_username} --git-pass-file ${pat_file_path} --num-cores ${NSLOTS} --output-dir ${output_dir}
