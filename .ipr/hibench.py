@@ -219,9 +219,9 @@ def measure_hibridon_perf(git_repos_url: str, code_version: str, tmp_dir: Path, 
         git_credentials.append(git_password)
     if len(git_credentials) != 0:
         git_repos_url = git_repos_url.replace('https://', 'https://%s@' % ':'.join(git_credentials))
-    src_dir = tmp_dir / 'hibridon'
-    src_dir.mkdir(exist_ok=True)
-    subprocess.run(['git', 'clone', '%s' % (git_repos_url)], cwd=src_dir, check=True)
+    src_dir = tmp_dir / 'source.git'
+    # src_dir.mkdir(exist_ok=True)
+    subprocess.run(['git', 'clone', '%s' % (git_repos_url), src_dir], cwd=tmp_dir, check=True)
     if code_version:
         subprocess.run(['git', 'checkout', '%s' % (code_version)], cwd=src_dir, check=True)
 
