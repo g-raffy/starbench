@@ -207,7 +207,7 @@ def test_starbencher():
 # end of starbencher
 
 
-def measure_hibridon_perf(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, tests_to_run: str, hibridon_version: str = None, cmake_options: List[str] = None):
+def measure_hibridon_perf(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, benchmark_command: List[str], hibridon_version: str = None, cmake_options: List[str] = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
@@ -266,7 +266,7 @@ def measure_hibridon_perf(git_repos_url: str, code_version: str, tmp_dir: Path, 
     print('benchmarking %s ...' % (build_dir))
     stop_condition = StopAfterSingleRun()
     bench = StarBencher(
-        run_command=['ctest', '--output-on-failure', '-L', tests_to_run],
+        run_command=benchmark_command,
         num_cores_per_run=1,
         num_parallel_runs=num_cores,
         max_num_cores=num_cores,
@@ -282,7 +282,7 @@ if __name__ == '__main__':
 
     example_text = '''example:
 
-    %(prog)s --git-repos-url https://github.com/hibridon/hibridon --code-version a3bed1c3ccfbca572003020d3e3d3b1ff3934fad --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON
+    %(prog)s --git-repos-url https://github.com/hibridon/hibridon --code-version a3bed1c3ccfbca572003020d3e3d3b1ff3934fad --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
 
     '''
 
@@ -296,6 +296,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-cores', type=int, required=True, help='the number of cores that the benchmark will use')
     parser.add_argument('--output-dir', type=Path, required=True, help='where the output files will be placed')
     parser.add_argument('--cmake-option', type=str, action='append', help='additional option passed to cmake in the configure step (use this flag multiple times if you need more than one cmake option)')
+    parser.add_argument('--benchmark-command', required=True, type=str, help='the command to benchmark')
     args = parser.parse_args()
 
     git_user = args.git_user
@@ -308,6 +309,4 @@ if __name__ == '__main__':
         with open(args.git_pass_file, 'r') as f:
             git_password = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
 
-    quick_test = '^arch4_quick$'  # about 2s on a core i5 8th generation
-    benchmark_test = '^nh3h2_qma_long$'  # about 10min on a core i5 8th generation
-    measure_hibridon_perf(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, tests_to_run=quick_test, cmake_options=args.cmake_option)
+    measure_hibridon_perf(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '))
