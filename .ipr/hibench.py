@@ -207,7 +207,7 @@ def test_starbencher():
 # end of starbencher
 
 
-def measure_hibridon_perf(git_repos_url: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, tests_to_run: str, hibridon_version: str = None):
+def measure_hibridon_perf(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, tests_to_run: str, hibridon_version: str = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
@@ -221,8 +221,9 @@ def measure_hibridon_perf(git_repos_url: str, tmp_dir: Path, num_cores: int, git
         git_repos_url = git_repos_url.replace('https://', 'https://%s@' % ':'.join(git_credentials))
     src_dir = tmp_dir / 'hibridon'
     src_dir.mkdir(exist_ok=True)
-    subprocess.run(['git', 'clone', '%s' % (git_repos_url)], cwd=tmp_dir)
-    # subprocess.run(['git', 'checkout', '%s' % (hibridon_version)], cwd=src_dir)
+    subprocess.run(['git', 'clone', '%s' % (git_repos_url)], cwd=src_dir, check=True)
+    if code_version:
+        subprocess.run(['git', 'checkout', '%s' % (code_version)], cwd=src_dir, check=True)
 
     for compiler in ['gfortran']:  # , 'ifort']:
         # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomkly fail depnding on race conditions
@@ -282,12 +283,13 @@ if __name__ == '__main__':
 
     example_text = '''example:
 
-    %(prog)s --git-repos-url https://github.com/hibridon/hibridon --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench
+    %(prog)s --git-repos-url https://github.com/hibridon/hibridon --code-version a3bed1c3ccfbca572003020d3e3d3b1ff3934fad --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench
 
     '''
 
     parser = argparse.ArgumentParser(description='performs a hibridon benchmark', epilog=example_text, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--git-repos-url', required=True, help='the url of the code to benchmark (eg https://github.com/hibridon/hibridon/a3bed1c3ccfbca572003020d3e3d3b1ff3934fad)')
+    parser.add_argument('--git-repos-url', required=True, help='the url of the code to benchmark (eg https://github.com/hibridon/hibridon)')
+    parser.add_argument('--code-version', help='the version of the code to use; either a branch or a commit id (eg a3bed1c3ccfbca572003020d3e3d3b1ff3934fad)')
     parser.add_argument('--git-user', help='the git user to use to clone the code repository')
     password_group = parser.add_mutually_exclusive_group()
     password_group.add_argument('--git-pass-file', help='the path to a file containing the password (or personal access token)')
@@ -308,4 +310,4 @@ if __name__ == '__main__':
 
     quick_test = '^arch4_quick$'  # about 2s on a core i5 8th generation
     benchmark_test = '^nh3h2_qma_long$'  # about 10min on a core i5 8th generation
-    measure_hibridon_perf(git_repos_url=git_repos_url, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, tests_to_run=quick_test)
+    measure_hibridon_perf(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, tests_to_run=quick_test)
