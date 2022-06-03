@@ -1,14 +1,48 @@
 #!/usr/bin/env bash
 
-github_username='g-raffy'  # os.environ['HIBRIDON_REPOS_USER']
-hibridon_version='a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'  # latest from branch master as of 01/06/2022 12:52
-# hibridon_version='775048db02dfb317d5eaddb6d6db520be71a2fdf'  # latest from branch graffy-issue51 as of 01/06/
-hibridon_repos_url="https://github.com/hibridon/hibridon"
-pat_file_path="$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"
-output_dir="/tmp/hibridon_perf/${hibridon_version}"
 
-quick_test='^arch4_quick$'  # about 2s on a core i5 8th generation
-benchmark_test='^nh3h2_qma_long$'  # about 10min on a core i5 8th generation
-benchmark_command="ctest --output-on-failure -L ${quick_test}"
+git_repos_url="$1" # eg "https://github.com/hibridon/hibridon"
+git_user="$2" # eg 'g-raffy'
+git_pass_file="$3" # eg "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"
+code_version="$4"  # git branch id or commit id eg : 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
+cmake_options="$5"  # eg '-DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON'
+benchmark_command="$6"  # eg 'ctest -L ^arch4_quick$'
 
-starbench.py --git-repos-url ${hibridon_repos_url} --git-user ${github_username} --git-pass-file ${pat_file_path} --num-cores ${NSLOTS} --output-dir ${output_dir} --code-version ${hibridon_version} --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command=${benchmark_command}
+if [ "${JOBID}" = '' ]
+then
+	# this script is not executed by sge... set dummy values for test
+	TMP_DIR=/tmp
+	JOBID=666666
+	NSLOTS=2
+fi
+
+echo "Executing on $(hostname)"
+temp_dir=${TMP_DIR}/$(whoami)/${JOBID}
+mkdir -p "${temp_dir}"
+
+starbench_path="${temp_dir}/starbench.py"
+
+output_dir="${temp_dir}"
+num_cores=${NSLOTS}
+
+cat <<-'EOF' > "${starbench_path}"
+<include:starbench.py>
+EOF
+
+chmod a+x "$starbench_path"
+
+command="${starbench_path}"
+command="${command} --git-repos-url ${git_repos_url}"
+command="${command} --git-user ${git_user}"
+command="${command} --git-pass-file ${git_pass_file}"
+command="${command} --num-cores ${num_cores}"
+command="${command} --output-dir ${output_dir}"
+command="${command} --code-version ${code_version}"
+# echo "cmake_options: @$cmake_options@"
+for cmake_option in ${cmake_options}
+do
+	command="${command} --cmake-option=${cmake_option}"
+done
+command="${command} --benchmark-command=\"${benchmark_command}\""
+echo "command: $command"
+eval $command
