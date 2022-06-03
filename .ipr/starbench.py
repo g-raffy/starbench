@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# this script performs a performance benchmark of hibridon
 import argparse
 import threading
 import subprocess
@@ -207,7 +206,7 @@ def test_starbencher():
 # end of starbencher
 
 
-def measure_hibridon_perf(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, benchmark_command: List[str], hibridon_version: str = None, cmake_options: List[str] = None):
+def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, benchmark_command: List[str], cmake_options: List[str] = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
@@ -286,7 +285,7 @@ if __name__ == '__main__':
 
     '''
 
-    parser = argparse.ArgumentParser(description='performs a hibridon benchmark', epilog=example_text, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description='performs a benchmark on a cmake buildable app hosted on a git repository', epilog=example_text, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--git-repos-url', required=True, help='the url of the code to benchmark (eg https://github.com/hibridon/hibridon)')
     parser.add_argument('--code-version', help='the version of the code to use; either a branch or a commit id (eg a3bed1c3ccfbca572003020d3e3d3b1ff3934fad)')
     parser.add_argument('--git-user', help='the git user to use to clone the code repository')
@@ -309,4 +308,4 @@ if __name__ == '__main__':
         with open(args.git_pass_file, 'r') as f:
             git_password = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
 
-    measure_hibridon_perf(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '))
+    starbench_cmake_app(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '))

@@ -11,4 +11,4 @@ quick_test='^arch4_quick$'  # about 2s on a core i5 8th generation
 benchmark_test='^nh3h2_qma_long$'  # about 10min on a core i5 8th generation
 benchmark_command="ctest --output-on-failure -L ${quick_test}"
 
-hibench.py --git-repos-url ${hibridon_repos_url} --git-user ${github_username} --git-pass-file ${pat_file_path} --num-cores ${NSLOTS} --output-dir ${output_dir} --code-version ${hibridon_version} --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command=${benchmark_command}
+starbench.py --git-repos-url ${hibridon_repos_url} --git-user ${github_username} --git-pass-file ${pat_file_path} --num-cores ${NSLOTS} --output-dir ${output_dir} --code-version ${hibridon_version} --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command=${benchmark_command}
