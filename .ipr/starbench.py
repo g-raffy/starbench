@@ -186,13 +186,15 @@ class StarBencher():
             self._runs[run.id] = run
 
     def run(self):
+        print("executing the following command in parallel (%d parallel runs) : '%s'" % (self.num_parallel_runs, str(self.run_command)))
         for worker_id in range(self.num_parallel_runs):
             self._start_run(worker_id)
         # wait until all runs have finished
         self._finished_event.wait()
         with self._runs_lock:
-            if not all([run.return_code == 0 for run in self._runs.values()]):
-                raise Exception('at least one run failed')
+            workers_success = [run.return_code == 0 for run in self._runs.values()]
+            if not all(workers_success):
+                raise Exception('at least one run failed (workers_success = %s)' % workers_success)
         mean_duration, num_runs = self._get_run_mean_duration()
         print('mean duration : %.3f s (%d runs)' % (mean_duration, num_runs))
         return mean_duration
@@ -214,7 +216,7 @@ def test_starbencher():
 # end of starbencher
 
 
-def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, benchmark_command: List[str], cmake_options: List[str] = None):
+def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, benchmark_command: List[str], cmake_options: List[str] = None, cmake_exe_location: Path = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
@@ -247,8 +249,11 @@ def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, nu
     # build_dir.mkdir(exist_ok=True)
 
     print('configuring %s into %s ...' % (src_dir, build_dir))
+    cmake_prog = 'cmake'
+    if cmake_exe_location:
+        cmake_prog = str(cmake_exe_location)
     configure = StarBencher(
-        run_command=['cmake'] + cmake_options + [src_dir],
+        run_command=[cmake_prog] + cmake_options + [src_dir],
         num_cores_per_run=1,
         num_parallel_runs=num_cores,
         max_num_cores=num_cores,
@@ -289,7 +294,7 @@ if __name__ == '__main__':
 
     example_text = '''example:
 
-    %(prog)s --git-repos-url https://github.com/hibridon/hibridon --code-version a3bed1c3ccfbca572003020d3e3d3b1ff3934fad --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
+    %(prog)s --git-repos-url https://github.com/hibridon/hibridon --code-version a3bed1c3ccfbca572003020d3e3d3b1ff3934fad --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench --cmake-path=/opt/cmake/cmake-3.23.0/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
 
     '''
 
@@ -302,6 +307,7 @@ if __name__ == '__main__':
     password_group.add_argument('--git-pass', type=str, help='the password (or personal access token) to use (not recommended for security reasons)')
     parser.add_argument('--num-cores', type=int, required=True, help='the number of cores that the benchmark will use')
     parser.add_argument('--output-dir', type=Path, required=True, help='where the output files will be placed')
+    parser.add_argument('--cmake-path', type=Path, help='the path to the cmake executable to use in case a specific cmake is wanted')
     parser.add_argument('--cmake-option', type=str, action='append', help='additional option passed to cmake in the configure step (use this flag multiple times if you need more than one cmake option)')
     parser.add_argument('--benchmark-command', required=True, type=str, help='the command to benchmark')
     args = parser.parse_args()
@@ -316,4 +322,4 @@ if __name__ == '__main__':
         with open(args.git_pass_file, 'r') as f:
             git_password = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
 
-    starbench_cmake_app(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '))
+    starbench_cmake_app(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '), cmake_exe_location=args.cmake_path)

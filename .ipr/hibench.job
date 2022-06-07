@@ -8,16 +8,22 @@ code_version="$4"  # git branch id or commit id eg : 'a3bed1c3ccfbca572003020d3e
 cmake_options="$5"  # eg '-DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON'
 benchmark_command="$6"  # eg 'ctest -L ^arch4_quick$'
 
-if [ "${JOBID}" = '' ]
+cmake_path='/opt/cmake/cmake-3.23.0/bin/cmake'
+
+if [ "${JOB_ID}" = '' ]
 then
 	# this script is not executed by sge... set dummy values for test
-	TMP_DIR=/tmp
-	JOBID=666666
+	TMPDIR=/tmp
+	JOB_ID=666666
 	NSLOTS=2
 fi
 
-echo "Executing on $(hostname)"
-temp_dir=${TMP_DIR}/$(whoami)/${JOBID}
+echo "Executing job ${JOB_ID} on $(hostname)"
+temp_dir=${TMPDIR}/$(whoami)/${JOB_ID}
+if [ -d "${temp_dir}" ]
+then
+	rm -Rf "${temp_dir}"
+fi
 mkdir -p "${temp_dir}"
 
 starbench_path="${temp_dir}/starbench.py"
@@ -38,6 +44,7 @@ command="${command} --git-pass-file ${git_pass_file}"
 command="${command} --num-cores ${num_cores}"
 command="${command} --output-dir ${output_dir}"
 command="${command} --code-version ${code_version}"
+command="${command} --cmake-path ${cmake_path}"
 # echo "cmake_options: @$cmake_options@"
 for cmake_option in ${cmake_options}
 do
