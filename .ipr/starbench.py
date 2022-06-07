@@ -3,11 +3,19 @@ import argparse
 import threading
 import subprocess
 import os
-from typing import List, Dict  # , Set, , Tuple, Optional
+import sys
+from typing import List   # Dict, Set, , Tuple, Optional
 from datetime import datetime
 from pathlib import Path
 from abc import ABC, abstractmethod
-from typing import ForwardRef
+# from typing import ForwardRef
+try:
+    from typing import ForwardRef  # type: ignore
+except ImportError:
+    # python 3.6
+    from typing import _ForwardRef as ForwardRef
+
+assert sys.version_info >= (3, 5, 0), 'this code requires at least python 3.5'  # type hints in arguments
 
 
 class Run():
@@ -74,17 +82,17 @@ class StarBencher():
 
     def __init__(self, run_command: List[str], num_cores_per_run: int, num_parallel_runs: int, max_num_cores: int, stop_condition: IStarBencherStopCondition, stop_on_error=True, run_command_cwd: Path = None, stdout_filepath: Path = None, stderr_filepath: Path = None):
         assert num_cores_per_run * num_parallel_runs <= max_num_cores
-        self.run_command: List[str] = run_command
+        self.run_command = run_command  # in python3.6+, replace with self.run_command: List[str] = run_command
         self.run_command_cwd = run_command_cwd
         self.stdout_filepath = stdout_filepath
         self.stderr_filepath = stderr_filepath
         self.num_cores_per_run = num_cores_per_run
         self.num_parallel_runs = num_parallel_runs
-        self.max_num_cores: int = max_num_cores
-        self.stop_condition: IStarBencherStopCondition = stop_condition
+        self.max_num_cores = max_num_cores  # in python3.6+, replace with self.max_num_cores: int = max_num_cores
+        self.stop_condition = stop_condition  # in python3.6+, replace with self.stop_condition: IStarBencherStopCondition = stop_condition
         self.stop_on_error = stop_on_error
-        self._next_run_id: int = 0
-        self._runs: Dict(int, Run) = {}
+        self._next_run_id = 0  # in python3.6+, replace with self._next_run_id: int = 0
+        self._runs = {}  # in python3.6+, replace with self._runs: Dict(int, Run) = {}
         self._last_mean_duration = None
         self._num_runs = 0
         self._runs_lock = threading.Lock()
@@ -123,8 +131,8 @@ class StarBencher():
         return thread
 
     def _get_run_mean_duration(self):
-        duration_sums: float = 0.0
-        num_finished_runs: int = 0
+        duration_sums = 0.0  # in python3.6+, replace with duration_sums: float = 0.0
+        num_finished_runs = 0  # in python3.6+, replace with num_finished_runs: int = 0
         with self._runs_lock:
             for run in self._runs.values():
                 if run.has_finished():
@@ -220,9 +228,9 @@ def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, nu
         git_repos_url = git_repos_url.replace('https://', 'https://%s@' % ':'.join(git_credentials))
     src_dir = tmp_dir / 'source.git'
     # src_dir.mkdir(exist_ok=True)
-    subprocess.run(['git', 'clone', '%s' % (git_repos_url), src_dir], cwd=tmp_dir, check=True)
+    subprocess.run(['git', 'clone', '%s' % (str(git_repos_url)), str(src_dir)], cwd=str(tmp_dir), check=True)
     if code_version:
-        subprocess.run(['git', 'checkout', '%s' % (code_version)], cwd=src_dir, check=True)
+        subprocess.run(['git', 'checkout', '%s' % (code_version)], cwd=str(src_dir), check=True)
 
     # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
     build_dir = tmp_dir / 'worker<worker_id>'
