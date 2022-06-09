@@ -209,7 +209,8 @@ function launch_job_for_host_group()
 		qsub_command="${qsub_command} -cwd"
 		qsub_command="${qsub_command} -m ae"
 		qsub_command="${qsub_command} -l mem_available=${ram_per_core}"
-		qsub_command="${qsub_command} -N ${benchmark_test}_${host_group_id}"
+		qsub_command="${qsub_command} -j y"  # medge stderr file into stdout file for easier reading of history of events
+		qsub_command="${qsub_command} -N hibench_${host_group_id}_${compiler_id}_${hibridon_version}"
 		qsub_command="${qsub_command} ${command}"
 		# qsub -pe smp "$num_cores" -l "hostname=${hosts}" 
 		echo "qsub_command = $qsub_command"
