@@ -235,8 +235,9 @@ def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, nu
         subprocess.run(['git', 'checkout', '%s' % (code_version)], cwd=str(src_dir), check=True)
 
     # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
-    build_dir = tmp_dir / 'worker<worker_id>'
-    print('creating build directory %s' % build_dir)
+    worker_dir = tmp_dir / 'worker<worker_id>'
+    build_dir = worker_dir / 'build'
+    print('creating build directory %s' % worker_dir)
     create_build_dir = StarBencher(
         run_command=['mkdir', '-p', build_dir],
         num_cores_per_run=1,
@@ -259,8 +260,8 @@ def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, nu
         max_num_cores=num_cores,
         stop_condition=StopAfterSingleRun(),
         run_command_cwd=build_dir,
-        stdout_filepath=build_dir / 'configure_stdout.txt',
-        stderr_filepath=build_dir / 'configure_stderr.txt')
+        stdout_filepath=worker_dir / 'configure_stdout.txt',
+        stderr_filepath=worker_dir / 'configure_stderr.txt')
     configure_duration = configure.run()  # noqa: F841
 
     print('building %s ...' % (build_dir))
@@ -271,8 +272,8 @@ def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, nu
         max_num_cores=num_cores,
         stop_condition=StopAfterSingleRun(),
         run_command_cwd=build_dir,
-        stdout_filepath=build_dir / 'build_stdout.txt',
-        stderr_filepath=build_dir / 'build_stderr.txt')
+        stdout_filepath=worker_dir / 'build_stdout.txt',
+        stderr_filepath=worker_dir / 'build_stderr.txt')
     build_duration = build.run()  # noqa: F841
 
     print('benchmarking %s ...' % (build_dir))
@@ -284,8 +285,8 @@ def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, nu
         max_num_cores=num_cores,
         stop_condition=stop_condition,
         run_command_cwd=build_dir,
-        stdout_filepath=build_dir / 'bench_stdout.txt',
-        stderr_filepath=build_dir / 'bench_stderr.txt')
+        stdout_filepath=worker_dir / 'bench_stdout.txt',
+        stderr_filepath=worker_dir / 'bench_stderr.txt')
     mean_duration = bench.run()
     print('duration : %.3f s' % (mean_duration))
 

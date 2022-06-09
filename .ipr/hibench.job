@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+# this job file is a template file used by launch-perf-jobs.sh
 
 git_repos_url="$1" # eg "https://github.com/hibridon/hibridon"
 git_user="$2" # eg 'g-raffy'
@@ -10,16 +10,23 @@ benchmark_command="$6"  # eg 'ctest -L ^arch4_quick$'
 env_vars_bash_commands="$7"  # defines extra environment variables prior to launch starbench. eg "export MKLROOT=/opt/intel/compilers_and_libraries_2020.1.217/linux/mkl"
 
 cmake_path='/opt/cmake/cmake-3.23.0/bin/cmake'
+executed_by_sge=''
 
 if [ "${JOB_ID}" = '' ]
 then
+	executed_by_sge='false'
 	# this script is not executed by sge... set dummy values for test
 	TMPDIR=/tmp
 	JOB_ID=666666
 	NSLOTS=2
+else
+	executed_by_sge='true'
 fi
 
-echo "Executing job ${JOB_ID} on $(hostname)"
+launch_dir="$(pwd)"
+
+echo "Executing job ${JOB_ID} on $(hostname) from ${launch_dir}"
+echo "date: $(date --iso-8601=seconds)"
 temp_dir=${TMPDIR}/$(whoami)/${JOB_ID}
 if [ -d "${temp_dir}" ]
 then
@@ -59,5 +66,22 @@ do
 	command="${command} --cmake-option=${cmake_option}"
 done
 command="${command} --benchmark-command=\"${benchmark_command}\""
-echo "command: $command"
-eval $command
+
+echo "command: ${command}"
+eval ${command}
+if [ "$?" = '0' ]
+then
+	echo "the command ${command} succeeded"
+	rsync -va --exclude 'build' --exclude 'source.git' "${output_dir}/"  ${launch_dir}/  # exclude the source.git and build directories (one for each worker) because they are big and not that precious
+	# TMPDIR will be deleted by sge at the end of the job
+else
+	if [ ${executed_by_sge} = 'true' ]
+	then
+		# TMPDIR will be deleted by sge at the end of the job. Backup data for investigation
+		backup_dir="/opt/ipr/cluster/work.local/$(whoami)/${JOB_ID}"
+		echo "moving ${output_dir} to ${backup_dir} to that it doesn't get deleted by sge at the end of the job. This way, data gets a chance to be investagated then manually deleted." 
+		mv "${output_dir}" "${backup_dir}"
+	fi
+	echo "the command ${command} failed... the output data dir (${output_dir}) is expected to be cleaned up manually after investigation"
+	exit 1
+fi
