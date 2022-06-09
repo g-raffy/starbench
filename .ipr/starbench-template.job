@@ -39,7 +39,7 @@ starbench_path="${temp_dir}/starbench.py"
 output_dir="${temp_dir}"
 num_cores=${NSLOTS}
 
-# the starbench.py code is expected to be included in the job script as a replacement of the tag <include:starbench.py>
+# the starbench.py code is expected to be included in the job script as a replacement of the tag include:starbench.py
 cat <<-'EOF' > "${starbench_path}"
 <include:starbench.py>
 EOF
