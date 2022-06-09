@@ -187,9 +187,9 @@ function launch_job_for_host_group()
 			;;
 	esac
 
-	# cat $SCRIPT_DIR/hibench.job | sed "s~<include:starbench.py>~$(cat $SCRIPT_DIR/starbench.py)~" > /tmp/hibench.job
-	cat $SCRIPT_DIR/hibench.job | substitute_TAG_with_FILEcontents '<include:starbench.py>' "$SCRIPT_DIR/starbench.py" > /tmp/hibench.job
-	chmod a+x /tmp/hibench.job
+	local starbench_job_path='/tmp/starbench.job'
+	cat $SCRIPT_DIR/starbench-template.job | substitute_TAG_with_FILEcontents '<include:starbench.py>' "$SCRIPT_DIR/starbench.py" > "${starbench_job_path}"
+	chmod a+x "${starbench_job_path}"
 
 	local hibench_root_dir="$GLOBAL_WORK_DIR/graffy/hibridon/benchmarks/starbench"
 	mkdir -p "${hibench_root_dir}"
@@ -197,7 +197,7 @@ function launch_job_for_host_group()
 	local this_bench_dir="${hibench_root_dir}/${hibridon_version}/${benchmark_test}/${host_group_id}/${compiler_id}"
 	mkdir -p "${this_bench_dir}"
 
-	command="/tmp/hibench.job \"${git_repos_url}\" \"${git_user}\" \"${git_pass_file}\" \"${hibridon_version}\" \"${cmake_options}\" \"${benchmark_command}\" \"${env_vars_bash_commands}\""
+	command="${starbench_job_path} \"${git_repos_url}\" \"${git_user}\" \"${git_pass_file}\" \"${hibridon_version}\" \"${cmake_options}\" \"${benchmark_command}\" \"${env_vars_bash_commands}\""
 	echo "command = $command"
 		# eval $command
 

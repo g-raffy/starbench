@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# this job file is a template file used by launch-perf-jobs.sh
-
+# this job file is a template file for starbench jobs
 git_repos_url="$1" # eg "https://github.com/hibridon/hibridon"
 git_user="$2" # eg 'g-raffy'
 git_pass_file="$3" # eg "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"
@@ -34,11 +33,13 @@ then
 fi
 mkdir -p "${temp_dir}"
 
+# extract starbench.py from this job script
 starbench_path="${temp_dir}/starbench.py"
 
 output_dir="${temp_dir}"
 num_cores=${NSLOTS}
 
+# the starbench.py code is expected to be included in the job script as a replacement of the tag <include:starbench.py>
 cat <<-'EOF' > "${starbench_path}"
 <include:starbench.py>
 EOF
