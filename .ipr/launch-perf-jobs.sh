@@ -35,6 +35,7 @@ function launch_job_for_host_group()
 {
 	local hibridon_version="$1" # the version of hibridon to test, in the form of a valid commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
 	local host_group_id="$2"  # eg 'xeon_gold_6140'
+	local compiler_id="$3"  # eg 'gfortran' 'ifort'
 	local hosts=''
 	local num_cores=''
 	case "${host_group_id}" in
@@ -163,8 +164,28 @@ function launch_job_for_host_group()
 	git_repos_url="https://github.com/hibridon/hibridon"
 	git_user='g-raffy'  # os.environ['HIBRIDON_REPOS_USER']
 	git_pass_file="$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"
-	cmake_options='-DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON'
+	cmake_options=''
+	cmake_options="${cmake_options} -DCMAKE_BUILD_TYPE=Release"  # build in release mode for highest performance
+	cmake_options="${cmake_options} -DBUILD_TESTING=ON"  # enable hibridon tests
+	
 	benchmark_command="ctest --output-on-failure -L ^${benchmark_test}\$"
+
+	local env_vars_bash_commands=''
+	case "${compiler_id}" in
+		'ifort')
+			env_vars_bash_commands='module load compilers/ifort/latest'
+			cmake_options="${cmake_options} -DCMAKE_Fortran_COMPILER=ifort"  # use intel fortran compiler
+			cmake_options="${cmake_options} -DBLA_VENDOR=Intel10_64lp"  # use 64 bits intel mkl with multithreading 
+			;;
+		'gfortran')
+			env_vars_bash_commands=''
+			cmake_options="${cmake_options} -DCMAKE_Fortran_COMPILER=gfortran"  # use gfortran compiler
+			;;
+		*)
+			error "unhandled compiler_id : ${compiler_id}"
+			exit 1
+			;;
+	esac
 
 	# cat $SCRIPT_DIR/hibench.job | sed "s~<include:starbench.py>~$(cat $SCRIPT_DIR/starbench.py)~" > /tmp/hibench.job
 	cat $SCRIPT_DIR/hibench.job | substitute_TAG_with_FILEcontents '<include:starbench.py>' "$SCRIPT_DIR/starbench.py" > /tmp/hibench.job
@@ -173,10 +194,10 @@ function launch_job_for_host_group()
 	local hibench_root_dir="$GLOBAL_WORK_DIR/graffy/hibridon/benchmarks/starbench"
 	mkdir -p "${hibench_root_dir}"
 
-	local this_bench_dir="${hibench_root_dir}/${hibridon_version}/${benchmark_test}/${host_group_id}/$(date --iso-8601=seconds)"
+	local this_bench_dir="${hibench_root_dir}/${hibridon_version}/${benchmark_test}/${host_group_id}/${compiler_id}"
 	mkdir -p "${this_bench_dir}"
 
-	command="/tmp/hibench.job \"${git_repos_url}\" \"${git_user}\" \"${git_pass_file}\" \"${hibridon_version}\" \"${cmake_options}\" \"${benchmark_command}\""
+	command="/tmp/hibench.job \"${git_repos_url}\" \"${git_user}\" \"${git_pass_file}\" \"${hibridon_version}\" \"${cmake_options}\" \"${benchmark_command}\" \"${env_vars_bash_commands}\""
 	echo "command = $command"
 		# eval $command
 
@@ -200,19 +221,34 @@ function launch_job_for_host_group()
 function launch_perf_jobs()
 {
 	local hibridon_version="$1" # the version of hibridon to test, in the form of a valid commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
-	
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_x5550'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_x5650'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_e5-2660'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_e5-2660v2'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_e5-2660v4'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_gold_6140'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_gold_6154'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_gold_5222'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_gold_6226r'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_gold_6240r'
-	launch_job_for_host_group "${hibridon_version}" 'intel_xeon_gold_6248r'
-	launch_job_for_host_group "${hibridon_version}" 'amd_epyc_7282'
+
+	local compilers=''
+	compilers="${compilers} gfortran"
+	compilers="${compilers} ifort"
+
+	local host_groups=''
+	host_groups="${host_groups} intel_xeon_x5550"
+	host_groups="${host_groups} intel_xeon_x5650"
+	host_groups="${host_groups} intel_xeon_e5-2660"
+	host_groups="${host_groups} intel_xeon_e5-2660v2"
+	host_groups="${host_groups} intel_xeon_e5-2660v4"
+	host_groups="${host_groups} intel_xeon_gold_6140"
+	host_groups="${host_groups} intel_xeon_gold_6154"
+	host_groups="${host_groups} intel_xeon_gold_5222"
+	host_groups="${host_groups} intel_xeon_gold_6226r"
+	host_groups="${host_groups} intel_xeon_gold_6240r"
+	host_groups="${host_groups} intel_xeon_gold_6248r"
+	host_groups="${host_groups} amd_epyc_7282"
+
+	local compiler=''
+	local host_group=''
+	for compiler in ${compilers}
+	do
+		for host_group in ${host_groups}
+		do
+			launch_job_for_host_group "${hibridon_version}" "${host_group}" "${compiler}"
+		done
+	done
 
 	#launch_job_for_host_group "${hibridon_version}" 'intel_xeon_gold_6140'
 }
