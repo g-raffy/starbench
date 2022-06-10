@@ -19,8 +19,8 @@ then
 fi
 
 HIBRIDON_VERSION="$1"  # the version of hibridon to test, in the form of a valid commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
-# 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'  # latest from branch master as of 01/06/2022 12:52
-# code_version='775048db02dfb317d5eaddb6d6db520be71a2fdf'  # latest from branch graffy-issue51 as of 01/06/
+# '53894da48505892bfa05693a52312bacb12c70c9'  # latest from branch master as of 10/06/2022 00:30
+# code_version='dd0f413b85cf0f727a5a4e88b2b02d75a28b377f'  # latest from branch graffy-issue51 as of 10/06/2022 00:30
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
