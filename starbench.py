@@ -75,7 +75,7 @@ class StopWhenConverged(IStarBencherStopCondition):
         return do_stop
 
 
-class StarBencher():
+class StarBencher():  # pylint: disable=function-redefined (false positive)
     '''
     the 'star' term comes from hpl's stadgemm benchmark, where we launch `n` independent programs on `n cores`
     '''
@@ -208,10 +208,10 @@ def test_starbencher():
         mean_duration = bench.run()
         print(mean_duration)
 
-    if False:
-        bench = StarBencher(run_command=['ls', '/tmp'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, max_error=0.0001)
-        mean_duration = bench.run()
-        print(mean_duration)
+    # if False:
+    #     bench = StarBencher(run_command=['ls', '/tmp'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, max_error=0.0001)
+    #     mean_duration = bench.run()
+    #     print(mean_duration)
 
 # end of starbencher
 
