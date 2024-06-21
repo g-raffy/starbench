@@ -1,0 +1,3 @@
+src/starbench/__pycache__/
+dist/
+src/starbench.egg-info/

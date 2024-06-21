@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools"]
+build-backup = "setuptools.build_meta"
+
+[project]
+name = "starbench"
+dynamic = ["version"]  # the list of fields whose values are dicovered by the backend (eg __version__)
+description = "a tool to benchmark a git cmake application using embarassingly parallel runs"
+readme = "README.md"
+keywords = ["benchmark", "hpc", "parallel", 'openmp']
+license = {text = "MIT License"}
+dependencies = [
+#   "cocluto >= 1.2"
+#    "cocluto@git+https://git.ipr.univ-rennes.fr/cellinfo/cocluto"
+]
+requires-python = ">= 3.8"
+authors = [
+    {name = "Guillaume Raffy", email = "guillaume.raffy@univ-rennes.fr"}
+]
+
+[project.scripts]
+starbench = "starbench.main:main"
+
+[project.urls]
+Repository = "https://github.com/g-raffy/starbench"
+
+[tool.setuptools.dynamic]
+version = {attr = "starbench.main.__version__"}
