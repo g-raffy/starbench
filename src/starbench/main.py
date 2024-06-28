@@ -31,6 +31,8 @@ WorkerId = int  # identifier of a worker (a run is performed on a worker)
 DurationInSeconds = float
 ProcessId = int
 ReturnCode = int
+Url = str
+GitCommitId = str
 
 
 class Run():
@@ -285,25 +287,59 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
 
 # end of starbencher
 
+class IFileTreeProvider(ABC):
 
-def starbench_cmake_app(git_repos_url: str, code_version: str, tmp_dir: Path, num_cores: int, git_user: str, git_password: str, benchmark_command: List[str], cmake_options: List[str] = None, cmake_exe_location: Path = None):
+    @abstractmethod
+    def get_source_tree_path(self) -> Path:
+        pass
+
+
+class ExistingDir(IFileTreeProvider):
+    dir_path: Path
+
+    def __init__(self, dir_path: Path):
+        self.dir_path = dir_path
+
+    def get_source_tree_path(self) -> Path:
+        return self.dir_path
+
+
+class GitRepos(IFileTreeProvider):
+    git_repos_url: Url
+    git_user: Optional[str]
+    git_password: Optional[str]
+    code_version: Optional[GitCommitId]
+    src_dir: Optional[Path]  # the temporary directory used to populate the source code
+
+    def __init__(self, git_repos_url: Url, git_user: Optional[str] = None, git_password: Optional[str] = None, code_version: Optional[GitCommitId] = None, src_dir: Optional[Path] = None):
+        self.git_repos_url = git_repos_url
+        self.git_user = git_user
+        self.git_password = git_password
+        self.code_version = code_version
+        self.src_dir = src_dir
+
+    def get_source_tree_path(self) -> Path:
+        self.src_dir.mkdir(exist_ok=True)
+        git_credentials = []
+        if self.git_user:
+            git_credentials.append(self.git_user)
+        if self.git_password:
+            git_credentials.append(self.git_password)
+        git_repos_url = self.git_repos_url
+        if len(git_credentials) != 0:
+            git_repos_url = git_repos_url.replace('https://', f"https://{':'.join(git_credentials)}@")
+        # src_dir.mkdir(exist_ok=True)
+        subprocess.run(['git', 'clone', f'{str(self.git_repos_url)}', str(self.src_dir)], cwd=str(self.src_dir), check=True)
+        if self.code_version:
+            subprocess.run(['git', 'checkout', f'{self.code_version}'], cwd=str(self.src_dir), check=True)
+        return self.src_dir
+
+
+def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, num_cores: int, benchmark_command: List[str], cmake_options: List[str] = None, cmake_exe_location: Path = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
-    tmp_dir.mkdir(exist_ok=True)
-    git_credentials = []
-    if git_user:
-        git_credentials.append(git_user)
-    if git_password:
-        git_credentials.append(git_password)
-    if len(git_credentials) != 0:
-        git_repos_url = git_repos_url.replace('https://', f"https://{':'.join(git_credentials)}@")
-    src_dir = tmp_dir / 'source.git'
-    # src_dir.mkdir(exist_ok=True)
-    subprocess.run(['git', 'clone', f'{str(git_repos_url)}', str(src_dir)], cwd=str(tmp_dir), check=True)
-    if code_version:
-        subprocess.run(['git', 'checkout', f'{code_version}'], cwd=str(src_dir), check=True)
-
+    src_dir = source_code_provider.get_source_tree_path()
     # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
     worker_dir = tmp_dir / 'worker<worker_id>'
     build_dir = worker_dir / 'build'
@@ -394,7 +430,9 @@ def main():
         with open(args.git_pass_file, 'r', encoding='utf8') as f:
             git_password = f.readline().replace('\n', '')  # os.environ['HIBRIDON_REPOS_PAT']
 
-    starbench_cmake_app(git_repos_url=git_repos_url, code_version=args.code_version, tmp_dir=args.output_dir, num_cores=args.num_cores, git_user=git_user, git_password=git_password, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '), cmake_exe_location=args.cmake_path)
+    source_tree_provider = GitRepos(git_repos_url=git_repos_url, code_version=args.code_version, git_user=git_user, git_password=git_password, src_dir=args.output_dir / 'source.git')
+
+    starbench_cmake_app(source_tree_provider, tmp_dir=args.output_dir, num_cores=args.num_cores, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '), cmake_exe_location=args.cmake_path)
 
 
 if __name__ == '__main__':
