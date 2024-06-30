@@ -45,3 +45,9 @@ Installing collected packages: starbench
 Successfully installed starbench-1.0.0
 bob@bob-ws2:~/work/starbench$ starbench --git-repos-url https://github.com/hibridon/hibridon --code-version a3bed1c3ccfbca572003020d3e3d3b1ff3934fad --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench --cmake-path=/opt/cmake/cmake-3.23.0/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
 ```
+
+## how to test
+
+```sh
+(starbench.venv) graffy@graffy-ws2:~/work/starbench/starbench.git$ python3 -m unittest test.test_starbench
+```

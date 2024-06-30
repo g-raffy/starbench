@@ -1,3 +1,4 @@
-src/starbench/__pycache__/
+**/__pycache__/
 dist/
 src/starbench.egg-info/
+tmp/

@@ -233,6 +233,7 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
     def _interpret_tags(tagged_string: str, tags_value: Dict[str, str]) -> str:
         untagged_string = tagged_string
         for tag_id, tag_value in tags_value.items():
+            assert isinstance(untagged_string, str)
             untagged_string = untagged_string.replace(tag_id, tag_value)
         return untagged_string
 
@@ -246,9 +247,12 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
         stdout_filepath = None
         if self.stdout_filepath is not None:
             stdout_filepath = CommandPerfEstimator._interpret_tags(str(self.stdout_filepath), tags_value)
+            Path(stdout_filepath).parent.mkdir(exist_ok=True)
         stderr_filepath = None
         if self.stderr_filepath is not None:
             stderr_filepath = CommandPerfEstimator._interpret_tags(str(self.stderr_filepath), tags_value)
+            Path(stderr_filepath).parent.mkdir(exist_ok=True)
+
         with self._runs_lock:
             run = Run(self._next_run_id, worker_id)
             self._next_run_id += 1
@@ -335,7 +339,7 @@ class GitRepos(IFileTreeProvider):
         return self.src_dir
 
 
-def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, num_cores: int, benchmark_command: List[str], cmake_options: List[str] = None, cmake_exe_location: Path = None):
+def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, num_cores: int, benchmark_command: List[str], cmake_options: List[str] = [], cmake_exe_location: Path = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
@@ -345,7 +349,7 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, 
     build_dir = worker_dir / 'build'
     print(f'creating build directory {worker_dir}')
     create_build_dir = CommandPerfEstimator(
-        run_command=['mkdir', '-p', build_dir],
+        run_command=['mkdir', '-p', str(build_dir)],
         num_cores_per_run=1,
         num_parallel_runs=num_cores,
         max_num_cores=num_cores,
@@ -360,7 +364,7 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, 
     if cmake_exe_location:
         cmake_prog = str(cmake_exe_location)
     configure = CommandPerfEstimator(
-        run_command=[cmake_prog] + cmake_options + [src_dir],
+        run_command=[cmake_prog] + cmake_options + [str(src_dir)],
         num_cores_per_run=1,
         num_parallel_runs=num_cores,
         max_num_cores=num_cores,
