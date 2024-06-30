@@ -14,7 +14,7 @@ class StarbenchTestCase(unittest.TestCase):
 
     def test_mamul1_benchmark(self):
         logging.info('test_mamul1_benchmark')
-        source_code_provider = ExistingDir(Path('/home/graffy/work/starbench/starbench.git/test/mamul1'))
+        source_code_provider = ExistingDir(Path('test/mamul1').absolute())
         tmp_dir = Path('tmp').absolute()
         benchmark_command = ['./mamul1', '3000', '10']
         starbench_cmake_app(source_code_provider=source_code_provider, tmp_dir=tmp_dir, num_cores=2, benchmark_command=benchmark_command)
