@@ -339,7 +339,7 @@ class GitRepos(IFileTreeProvider):
         return self.src_dir
 
 
-def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, num_cores: int, benchmark_command: List[str], cmake_options: List[str] = [], cmake_exe_location: Path = None):
+def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, num_cores: int, benchmark_command: List[str], cmake_options: Optional[List[str]] = None, cmake_exe_location: Path = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
@@ -347,6 +347,8 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, 
     # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
     worker_dir = tmp_dir / 'worker<worker_id>'
     build_dir = worker_dir / 'build'
+    if cmake_options is None:
+        cmake_options = []
     print(f'creating build directory {worker_dir}')
     create_build_dir = CommandPerfEstimator(
         run_command=['mkdir', '-p', str(build_dir)],
