@@ -9,7 +9,7 @@ class StarbenchTestCase(unittest.TestCase):
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    def setUp(self) -> None:
+    def setUp(self) -> None:  # pylint: disable=useless-parent-delegation
         return super().setUp()
 
     def test_mamul1_benchmark(self):

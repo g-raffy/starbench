@@ -272,21 +272,3 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
         mean_duration, num_runs = self.get_run_mean_duration()
         print(f'mean duration : {mean_duration:.3f} s ({num_runs} runs)')
         return mean_duration
-
-
-# def test_starbencher():
-#     if False:
-#         stop_condition = StopAfterSingleRun()
-#         # stop_condition = StopWhenConverged(max_error=0.0001)
-#         bench = StarBencher(run_command=['sleep', '0.1415927'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, stop_condition=stop_condition)
-#         mean_duration = bench.run()
-#         print(mean_duration)
-
-#     if False:
-#         bench = StarBencher(run_command=['ls', '/tmp'], num_cores_per_run=1, num_parallel_runs=2, max_num_cores=2, max_error=0.0001)
-#         mean_duration = bench.run()
-#         print(mean_duration)
-#     pass
-
-# end of starbencher
-
