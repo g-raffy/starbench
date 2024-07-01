@@ -236,12 +236,16 @@ subroutine test_dgemm(ndim, num_loops)
     integer, intent(in) :: ndim
     integer, intent(in) :: num_loops
     integer, parameter :: dp = kind(1.0d0)
-    real :: tstart, tstop
+    real :: ct_start, ct_stop  ! elapsed cpu time relative to an arbitrary fixed time. Expressed in seconds with the granularity of 1 microsecond
     integer(8) :: num_ops
     real :: gflops
 
-    INTEGER :: c1,c2,cr,cm,s
-    REAL :: a_diff, diff, rate
+    integer :: sc_start, sc_stop   ! system clock time of start and stop events, expressed in ticks
+    integer :: sc_count_rate  ! number of system clock ticks per second
+    integer :: sc_count_max   ! the max possible number of system clock ticks returned by system_clock
+    integer :: s
+    REAL :: a_diff, diff
+    REAL :: num_sc_ticks_per_second  ! the number of system clock ticks per second
 
     real*8, allocatable :: amat(:,:)
     real*8, allocatable :: bmat(:,:)
@@ -255,10 +259,10 @@ subroutine test_dgemm(ndim, num_loops)
 #endif
 
     ! First initialize the system_clock
-    CALL system_clock(count_rate=cr)
-    CALL system_clock(count_max=cm)
-    rate = REAL(cr)
-    WRITE(*,*) "system_clock rate ",rate
+    CALL system_clock(count_rate=sc_count_rate)
+    CALL system_clock(count_max=sc_count_max)
+    num_sc_ticks_per_second = REAL(sc_count_rate)
+    WRITE(*,*) "system_clock rate : ", num_sc_ticks_per_second, " ticks per second"
 
     diff = 0.0
     a_diff = 0.0
@@ -281,8 +285,8 @@ subroutine test_dgemm(ndim, num_loops)
         end do
     end do
 
-    call cpu_time(tstart)
-    call system_clock(c1)
+    call cpu_time(ct_start)
+    call system_clock(sc_start)
 
     do j = 1, num_loops
         ! playmat = amat
@@ -291,11 +295,11 @@ subroutine test_dgemm(ndim, num_loops)
 
     end do
 
-    call cpu_time(tstop)
-    call system_clock(c2)
-    if ( (c2 - c1)/rate < (tstop - tstart) ) s = s + 1
-    diff = (c2 - c1)/rate - (tstop - tstart) + diff
-    a_diff = ABS((c2 - c1)/rate - (tstop - tstart)) + a_diff
+    call cpu_time(ct_stop)
+    call system_clock(sc_stop)
+    if ( (sc_stop - sc_start)/num_sc_ticks_per_second < (ct_stop - ct_start) ) s = s + 1
+    diff = (sc_stop - sc_start)/num_sc_ticks_per_second - (ct_stop - ct_start) + diff
+    a_diff = ABS((sc_stop - sc_start)/num_sc_ticks_per_second - (ct_stop - ct_start)) + a_diff
 
     ! check one of the elements of cmat (the last one here: cmat(ndim, ndim))
     call check_cmat_element(cmat,    1,    1, amat, bmat, ndim)
@@ -313,17 +317,17 @@ subroutine test_dgemm(ndim, num_loops)
     ! call print_matrix(cmat, ndim)
 
     num_ops = real(ndim) * real(ndim) * real(ndim) * 2 * num_loops
-    gflops = num_ops / (tstop-tstart) / 1.0e9
+    gflops = num_ops / (ct_stop-ct_start) / 1.0e9
 
 
-    write(6, '("Time taken by dgemm for matrix size ",i8," was ",f10.2," seconds")') ndim, tstop-tstart
-    WRITE(*,*) "gflops (from cpu memory to cpu memory)       : ", gflops
+    write(6, '("Time taken by dgemm for matrix size ",i8," was ",f10.2," seconds")') ndim, ct_stop-ct_start
+    WRITE(*,*) "gflops (including potential memory transfers)       : ", gflops
     
-    WRITE(*,*) "system_clock : ",(c2 - c1)/rate
-    WRITE(*,*) "cpu_time     : ",(tstop - tstart)
-    WRITE(*,*) "sc < ct      : ",s
-    WRITE(*,*) "mean diff    : ",diff
-    WRITE(*,*) "abs mean diff: ",a_diff
+    WRITE(*,*) "system_clock         : ",(sc_stop - sc_start)/num_sc_ticks_per_second
+    WRITE(*,*) "cpu_time             : ",(ct_stop - ct_start)
+    WRITE(*,*) "sys_clock < cpu_time : ",s
+    WRITE(*,*) "mean diff            : ",diff
+    WRITE(*,*) "abs mean diff        : ",a_diff
 
 #if defined(USE_MAGMA_DGEMM_GPU)
     write(6,*) 'DEBUG: deinit magma'
