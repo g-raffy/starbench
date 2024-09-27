@@ -3,7 +3,7 @@ a tool to benchmark a git cmake application using embarassingly parallel runs
 
 `starbench` is a tool designed to build and test the performance of an application versioned in a `git` repository and using the `cmake` build system.
 
-In order to measure the performance of the code in *hpc* (high performance computing) environment, `starbench` is designed to make all the cores busy. For this, it uses the same technique as in `hpl`'s `stardgemm` test (that's where the 'star' prefix comes from): the same code is run on each `CPU` core. This way, we performances measures are expected to be more realistic, as the cores won't benefit from the unrealistic boost provided by the memory cache of unued cores.
+In order to measure the performance of the code in *hpc* (high performance computing) environment, `starbench` is designed to make all the cores busy. For this, it uses the same technique as in `hpl`'s `stardgemm` test (that's where the 'star' prefix comes from): the same code is run on each `CPU` core. This way, we performances measures are expected to be more realistic, as the cores won't benefit from the unrealistic boost provided by the memory cache of unused cores.
 
 If the user provides:
 - the `url` of the repository
@@ -16,7 +16,7 @@ then `starbench` will do the rest:
 2. checkout the requested version
 3. configure the build
 4. build the code
-5. run the becnhmark command for each core
+5. run the benchmark command for each core
 6. output the average duration of the benchmark
 
 ## example

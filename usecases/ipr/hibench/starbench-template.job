@@ -80,7 +80,7 @@ else
 	then
 		# TMPDIR will be deleted by sge at the end of the job. Backup data for investigation
 		backup_dir="/opt/ipr/cluster/work.local/$(whoami)/${JOB_ID}"
-		echo "moving ${output_dir} to ${backup_dir} to that it doesn't get deleted by sge at the end of the job. This way, data gets a chance to be investagated then manually deleted." 
+		echo "moving ${output_dir} to ${backup_dir} to that it doesn't get deleted by sge at the end of the job. This way, data gets a chance to be investigated then manually deleted." 
 		mv "${output_dir}" "${backup_dir}"
 	fi
 	echo "the command ${command} failed... the output data dir (${output_dir}) is expected to be cleaned up manually after investigation"
