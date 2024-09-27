@@ -2,3 +2,5 @@
 dist/
 src/starbench.egg-info/
 tmp/
+starbench.venv/
+usecases/ipr/hibench/results/
