@@ -4,7 +4,9 @@ from pathlib import Path
 import re
 import pandas as pd
 import datetime
-
+import matplotlib.pyplot as plt
+import numpy as np
+from sqlalchemy import create_engine, text
 
 CpuId = str  # eg 'intel_xeon_gold_6248r'
 Speed = float  # the execution speed for a given job (1.0/job duration), in s^-1
@@ -245,9 +247,97 @@ class HibenchResultsParser():
                             duration = HibenchResultsParser.parse_bench_stdout(child_path / 'bench_stdout.txt')
                             measure.worker_durations.append(duration)
                         if len(measure.worker_durations) > 0:
-                            results.loc[results.shape[0]] = [commit_id, test_id, cpu_id, build_config_info['fortran_compiler'], build_config_info['fortran_compiler_version'], build_config_info['blas'], build_config_info['blas_version'], build_config_info['lapack'], build_config_info['lapack_version'], measure.get_average_duration(), host_fqdn, job_id, job_start_time, submit_dir]
+                            results.loc[results.shape[0]] = [commit_id, test_id, cpu_id, build_config_info['fortran_compiler'], build_config_info['fortran_compiler_version'], build_config_info['blas'], build_config_info['blas_version'], build_config_info['lapack'], build_config_info['lapack_version'], measure.get_average_duration(), host_fqdn, job_id, job_start_time.isoformat(), str(submit_dir)]
         print(results.dtypes)
         return results
+
+
+def create_graphs(sql_engine):
+    with sql_engine.connect() as conn:
+        bar_data = {}
+
+        computation_id = 'nh3h2_qma_long'
+        commit_ids = set()
+        result = conn.execute(text('SELECT "cpu-id", "avg-duration", "commit-id" FROM hibench WHERE blas="mkl"'))
+        for row in result:
+            print(row)
+            (cpu_id, avg_duration, commit_id) = row
+            if cpu_id not in bar_data.keys():
+                bar_data[cpu_id] = {}
+            cpu_perf = bar_data[cpu_id]
+            cpu_perf[commit_id] = avg_duration
+            commit_ids.add(commit_id)
+
+        # print(mkl_perf)
+
+        fig, ax = plt.subplots()
+        cpu_ids = bar_data.keys()
+        x = np.arange(len(cpu_ids))  # the label locations
+        bar_group_width = 0.8
+        bar_width = bar_group_width / len(commit_ids)  # the width of the bars
+
+        commit_index = 0
+        for commit_id in commit_ids:
+            # print(f'commit {commit_id}')
+            avg_durations = []
+            for cpu_id in cpu_ids:
+                perfs = bar_data[cpu_id]
+                # print(perfs)
+                if commit_id in perfs:
+                    avg_duration = perfs[commit_id]
+                else:
+                    avg_duration = 0.0
+                avg_durations.append(avg_duration)
+            bar_x_pos = x - bar_group_width * 0.5 + bar_group_width * ((commit_index + 0.5) / len(commit_ids))
+            print(commit_index, bar_x_pos)
+            rects = ax.bar(bar_x_pos, avg_durations, bar_width, label=f'hibridon {commit_id}')
+            commit_index += 1
+
+        # Add some text for labels, title and custom x-axis tick labels, etc.
+        ax.set_ylabel('computation duration (s)')
+        ax.set_title(f'hibridon\'s {computation_id} performance (serial code) on various cpus')
+        ax.set_xticks(x)
+        ax.tick_params(axis='x', labelrotation=45)
+        ax.set_xticklabels(cpu_ids)
+        ax.legend()
+
+        if False:
+            plt.style.use('_mpl-gallery')
+
+            # make data:
+            x = 0.5 + np.arange(8)
+            y = [4.8, 5.5, 3.5, 4.6, 6.5, 6.6, 2.6, 3.0]
+
+            # plot
+            fig, ax = plt.subplots()
+
+            ax.bar(x, y, width=1, edgecolor="white", linewidth=0.7)
+
+            ax.set(xlim=(0, 8), xticks=np.arange(1, 8),
+                   ylim=(0, 8), yticks=np.arange(1, 8))
+
+        if False:
+            labels = ['G1', 'G2', 'G3', 'G4', 'G5']
+            men_means = [20, 34, 30, 35, 27]
+            women_means = [25, 32, 34, 20, 25]
+
+            x = np.arange(len(labels))  # the label locations
+            width = 0.35  # the width of the bars
+
+            fig, ax = plt.subplots()
+
+
+            rects1 = ax.bar(x - width/2, men_means, width, label='Men')
+            rects2 = ax.bar(x + width/2, women_means, width, label='Women')
+
+            # Add some text for labels, title and custom x-axis tick labels, etc.
+            ax.set_ylabel('Scores')
+            ax.set_title('Scores by group and gender')
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels)
+            ax.legend()
+
+        plt.show()
 
 
 def main():
@@ -256,6 +346,17 @@ def main():
     hiperf = HibenchResultsParser.parse_results(Path('/home/graffy/work/starbench/starbench.git/usecases/ipr/hibench/results'))
     hiperf.to_csv('/home/graffy/work/starbench/starbench.git/usecases/ipr/hibench/results.csv')
     print(hiperf)
+    engine = create_engine('sqlite://', echo=False)  # Turning echo to True just logs SQL statements, I'd avoid parsing this logs
+    # hiperf.to_sql(name='Auto', con=engine)
+    # hiperf.reset_index().to_sql(name='hibench', con=engine)  # reset_index() is needed to preserve index column in dumped data
+    hiperf.to_sql(name='hibench', con=engine)  # reset_index() is needed to preserve index column in dumped data
+
+    with engine.connect() as conn, open('/home/graffy/work/starbench/starbench.git/usecases/ipr/hibench/results.sql', 'wt', encoding='utf8') as sql_file:
+        for line in conn.connection.iterdump():
+            sql_file.write(line)
+            sql_file.write('\n')
+
+    create_graphs(engine)
 
 
 main()
