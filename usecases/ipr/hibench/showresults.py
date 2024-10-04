@@ -252,9 +252,25 @@ class HibenchResultsParser():
         return results
 
 
-def create_graphs(sql_engine):
+def get_cpu_freq(cpu_id: CpuId) -> float:
+    return {
+        'intel_xeon_x5550': 2.67,
+        'intel_xeon_x5650': 2.67,
+        'intel_xeon_e5-2660': 2.2,
+        'intel_xeon_e5-2660v2': 2.2,
+        'intel_xeon_e5-2660v4': 2.0,
+        'intel_xeon_gold_5222': 3.8,
+        'intel_xeon_gold_6140': 2.3,
+        'intel_xeon_gold_6154': 3.0,
+        'intel_xeon_gold_6226r': 2.9,
+        'intel_xeon_gold_6248r': 3.0,
+        'amd_epyc_7282': 2.8
+    }[cpu_id] * 10**9
+
+
+def create_graph(sql_engine, per_clock: bool):
     with sql_engine.connect() as conn:
-        bar_data = {}
+        cpu_data = {}
 
         computation_id = 'nh3h2_qma_long'
         commit_ids = set()
@@ -262,16 +278,29 @@ def create_graphs(sql_engine):
         for row in result:
             print(row)
             (cpu_id, avg_duration, commit_id) = row
-            if cpu_id not in bar_data.keys():
-                bar_data[cpu_id] = {}
-            cpu_perf = bar_data[cpu_id]
-            cpu_perf[commit_id] = avg_duration
+            if cpu_id not in cpu_data.keys():
+                cpu_data[cpu_id] = {}
+            commit_id_to_avg_duration = cpu_data[cpu_id]
+            commit_id_to_avg_duration[commit_id] = avg_duration
             commit_ids.add(commit_id)
 
         # print(mkl_perf)
 
+        cpu_order = {
+            'intel_xeon_x5550': 0,
+            'intel_xeon_e5-2660': 1,
+            'intel_xeon_e5-2660v2': 2,
+            'intel_xeon_e5-2660v4': 3,
+            'intel_xeon_gold_5222': 4,
+            'intel_xeon_gold_6140': 5,
+            'intel_xeon_gold_6154': 6,
+            'intel_xeon_gold_6226r': 7,
+            'intel_xeon_gold_6248r': 8,
+            'amd_epyc_7282': 9
+        }
+
         fig, ax = plt.subplots()
-        cpu_ids = bar_data.keys()
+        cpu_ids = sorted(cpu_data.keys(), key=lambda x: cpu_order[x])
         x = np.arange(len(cpu_ids))  # the label locations
         bar_group_width = 0.8
         bar_width = bar_group_width / len(commit_ids)  # the width of the bars
@@ -279,22 +308,28 @@ def create_graphs(sql_engine):
         commit_index = 0
         for commit_id in commit_ids:
             # print(f'commit {commit_id}')
-            avg_durations = []
+            y = []
             for cpu_id in cpu_ids:
-                perfs = bar_data[cpu_id]
+                commit_id_to_avg_duration = cpu_data[cpu_id]
                 # print(perfs)
-                if commit_id in perfs:
-                    avg_duration = perfs[commit_id]
-                else:
-                    avg_duration = 0.0
-                avg_durations.append(avg_duration)
+                cpu_y = 0.0
+                print(commit_id_to_avg_duration)
+                if commit_id in commit_id_to_avg_duration:
+                    cpu_y = 1.0 / commit_id_to_avg_duration[commit_id]
+                if per_clock:
+                    cpu_y /= get_cpu_freq(cpu_id)
+                y.append(cpu_y)
             bar_x_pos = x - bar_group_width * 0.5 + bar_group_width * ((commit_index + 0.5) / len(commit_ids))
             print(commit_index, bar_x_pos)
-            rects = ax.bar(bar_x_pos, avg_durations, bar_width, label=f'hibridon {commit_id}')
+            rects = ax.bar(bar_x_pos, y, bar_width, label=f'hibridon {commit_id}')
             commit_index += 1
 
         # Add some text for labels, title and custom x-axis tick labels, etc.
-        ax.set_ylabel('computation duration (s)')
+        if per_clock:
+            ylabel = 'number of computations per cpu clock for a core'
+        else:
+            ylabel = 'number of computations per second for a core'
+        ax.set_ylabel(ylabel)
         ax.set_title(f'hibridon\'s {computation_id} performance (serial code) on various cpus')
         ax.set_xticks(x)
         ax.tick_params(axis='x', labelrotation=45)
@@ -338,6 +373,10 @@ def create_graphs(sql_engine):
             ax.legend()
 
         plt.show()
+
+
+def create_graphs(sql_engine):
+    create_graph(sql_engine, per_clock=True)
 
 
 def main():
