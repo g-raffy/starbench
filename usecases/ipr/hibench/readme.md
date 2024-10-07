@@ -3,10 +3,10 @@ This example illustrates how `starbench` is used at IPR (Institut de Physique de
 usage:
 
 ```sh
-graffy@physix-frontal:/opt/ipr/cluster/work.global/graffy/starbench$ ./hibench-on-physix.sh 53894da48505892bfa05693a52312bacb12c70c9
+graffy@physix-frontal:/opt/ipr/cluster/work.global/graffy/starbench$ ./hibenchonphysix.py --commit-id 53894da48505892bfa05693a52312bacb12c70c9 --results-dir $GLOBAL_WORK_DIR/graffy/hibridon/benchmarks/starbench
 ```
 
-`hibench-on-physix.sh` script launches two `sge` jobs for each machine type in `physix` cluster:
+`hibenchonphysix.py` script launches two `sge` jobs for each machine type in `physix` cluster:
 - one job that performs a benchmark of hibridon with `gfortran` compiler
 - one job that performs a benchmark of hibridon with `ifort` compiler
 
