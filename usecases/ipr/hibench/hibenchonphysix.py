@@ -125,7 +125,7 @@ def get_host_group_info(host_group_id: HostGroupId) -> Tuple[List[HostFqdn], int
     return (hosts, num_cores)
 
 
-def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: HostGroupId, compiler_id: CompilerId):
+def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: HostGroupId, results_dir: Path, compiler_id: CompilerId):
 
     (hosts, num_cores) = get_host_group_info(host_group_id)
 
@@ -160,10 +160,9 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     else:
         assert f'unhandled compiler_id : {compiler_id}'
 
-    hibench_root_dir = Path(f'{getenv("GLOBAL_WORK_DIR")}/graffy/hibridon/benchmarks/starbench')
-    makedirs(hibench_root_dir, exist_ok=True)
+    makedirs(results_dir, exist_ok=True)
 
-    this_bench_dir = Path(f'{hibench_root_dir}/{hibridon_version}/{benchmark_test}/{host_group_id}/{compiler_id}')
+    this_bench_dir = Path(f'{results_dir}/{hibridon_version}/{benchmark_test}/{host_group_id}/{compiler_id}')
     makedirs(this_bench_dir, exist_ok=True)
 
     starbench_job_path = this_bench_dir / 'starbench.job'
@@ -191,9 +190,10 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     subprocess.run(qsub_command, cwd=this_bench_dir, check=True)
 
 
-def launch_perf_jobs(hibridon_version: GitCommitTag):
+def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path):
     """
     hibridon_version: the version of hibridon to test, in the form of a valid commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
+    results_dir: where the results of the benchmark are stored (eg $GLOBAL_WORK_DIR/graffy/benchmarks/hibench)
     """
 
     compilers = [
@@ -218,20 +218,38 @@ def launch_perf_jobs(hibridon_version: GitCommitTag):
 
     for compiler in compilers:
         for host_group in host_groups:
-            launch_job_for_host_group(hibridon_version, host_group, compiler)
+            launch_job_for_host_group(hibridon_version, host_group, results_dir, compiler)
+
+
+def path_is_reachable_by_compute_nodes(path: Path):
+    path_is_reachable = False
+    for shared_disk_path in [Path('/opt/ipr/cluster/work.global')]:
+        try:
+            _ = path.relative_to(shared_disk_path)
+        except ValueError:
+            continue
+        path_is_reachable = True
+        break
+    return path_is_reachable
 
 
 def main():
     arg_parser = ArgumentParser(description='launches hibridon benchmark jobs on IPR\'s physix cluster', epilog='example:\n    --commit-id a3bed1c3ccfbca572003020d3e3d3b1ff3934fad')
     arg_parser.add_argument('--commit-id', type=str, required=True, help='the commit id of the version of code to benchmark')
+    arg_parser.add_argument('--results-dir', type=Path, required=True, help='the root directory of the tree where the results of the benchmarks are stored (eg $GLOBAL_WORK_DIR/graffy/benchmarks/hibench)')
 
     args = arg_parser.parse_args()
     hibridon_version = args.commit_id
+
     # the version of hibridon to test, in the form of a valid commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
     # '53894da48505892bfa05693a52312bacb12c70c9'  # latest from branch master as of 10/06/2022 00:30
     # code_version='dd0f413b85cf0f727a5a4e88b2b02d75a28b377f'  # latest from branch graffy-issue51 as of 10/06/2022 00:30
 
-    launch_perf_jobs(hibridon_version)
+    results_dir = Path(args.results_dir)
+    if not path_is_reachable_by_compute_nodes(results_dir):
+        raise ValueError('the results path is expected to be on a disk that is accessible to all cluster nodes, and it doesn\'t seem to be the case for {results_dir}')
+
+    launch_perf_jobs(hibridon_version, results_dir)
 
 
 main()
