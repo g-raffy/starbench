@@ -159,7 +159,7 @@ class ClusterNodeDb:
         return (hosts, num_cores)
 
 
-def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: HostGroupId, results_dir: Path, compiler_id: CompilerId):
+def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: HostGroupId, results_dir: Path, compiler_id: CompilerId, cmake_path: str):
 
     cluster_db = ClusterNodeDb()
 
@@ -218,7 +218,7 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     substitute_tags(input_file_path=scripts_dir / 'starbench-template.job', tags_dict=tags_dict, output_file_path=starbench_job_path)
     subprocess.run(['chmod', 'a+x', starbench_job_path], check=True)
 
-    command = f'{starbench_job_path} "{git_repos_url}" "{git_user}" "{git_pass_file}" "{hibridon_version}" "{" ".join(cmake_options)}" "{benchmark_command}" "{env_vars_bash_commands}" "{starbench_root_path}"'
+    command = f'{starbench_job_path} "{git_repos_url}" "{git_user}" "{git_pass_file}" "{hibridon_version}" "{" ".join(cmake_options)}" "{benchmark_command}" "{env_vars_bash_commands}" "{starbench_root_path}" "{cmake_path}"'
     print(f'command = {command}')
 
     qsub_command = 'qsub'
@@ -236,7 +236,7 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     subprocess.run(qsub_command, cwd=this_bench_dir, check=True, shell=True)
 
 
-def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path, arch_regexp: str):
+def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path, arch_regexp: str, cmake_path: str):
     """
     hibridon_version: the version of hibridon to test, in the form of a valid commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
     results_dir: where the results of the benchmark are stored (eg $GLOBAL_WORK_DIR/graffy/benchmarks/hibench)
@@ -267,7 +267,7 @@ def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path, arch_reg
 
     for compiler in compilers:
         for host_group in host_groups:
-            launch_job_for_host_group(hibridon_version, host_group, results_dir, compiler)
+            launch_job_for_host_group(hibridon_version, host_group, results_dir, compiler, cmake_path)
 
 
 def path_is_reachable_by_compute_nodes(path: Path):
@@ -287,6 +287,7 @@ def main():
     arg_parser.add_argument('--commit-id', type=str, required=True, help='the commit id of the version of code to benchmark')
     arg_parser.add_argument('--results-dir', type=Path, required=True, help='the root directory of the tree where the results of the benchmarks are stored (eg $GLOBAL_WORK_DIR/graffy/benchmarks/hibench)')
     arg_parser.add_argument('--arch-regexp', type=str, default='.*', help='the regular expression for the architectures the benchmark is allowed to run on (eg "intel_xeon_.*"). By defauls, all available architectures are allowed.')
+    arg_parser.add_argument('--cmake-path', type=str, default='cmake', help='the location of the cmake command to use (eg /opt/cmake/cmake-3.23.0/bin/cmake)')
 
     args = arg_parser.parse_args()
     hibridon_version = args.commit_id
@@ -297,11 +298,12 @@ def main():
 
     results_dir = Path(args.results_dir)
     arch_regexp = args.arch_regexp
+    cmake_path = args.cmake_path
 
     if not path_is_reachable_by_compute_nodes(results_dir):
         raise ValueError('the results path is expected to be on a disk that is accessible to all cluster nodes, and it doesn\'t seem to be the case for {results_dir}')
 
-    launch_perf_jobs(hibridon_version, results_dir, arch_regexp)
+    launch_perf_jobs(hibridon_version, results_dir, arch_regexp, cmake_path)
 
 
 main()

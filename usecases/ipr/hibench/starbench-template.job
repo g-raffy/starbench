@@ -8,7 +8,7 @@ cmake_options="$5"  # eg '-DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON'
 benchmark_command="$6"  # eg 'ctest -L ^arch4_quick$'
 env_vars_bash_commands="$7"  # defines extra environment variables prior to launch starbench. eg "export MKLROOT=/opt/intel/compilers_and_libraries_2020.1.217/linux/mkl"
 starbench_src_url="$8"  # location of starbench source (eg /opt/ipr/cluster/work.global/graffy/hibridon/benchmarks/starbench/hibench/2024-10-08T16:39:52+02:00/starbench)
-cmake_path='/opt/cmake/cmake-3.23.0/bin/cmake'
+cmake_path="$9"   # eg '/opt/cmake/cmake-3.23.0/bin/cmake'
 executed_by_sge=''
 
 if [ "${JOB_ID}" = '' ]

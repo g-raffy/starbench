@@ -15,7 +15,7 @@ last command status : [0]
 ```
 
 ```sh
-graffy@physix-frontal:/opt/ipr/cluster/work.global/graffy/starbench.git/usecases/ipr/hibench$ ./hibenchonphysix.py --commit-id 53894da48505892bfa05693a52312bacb12c70c9 --results-dir $GLOBAL_WORK_DIR/graffy/hibridon/benchmarks/starbench/hibench/$(date --iso=seconds) --arch-regexp 'intel_xeon_x5650'
+graffy@alambix-frontal:/opt/ipr/cluster/work.global/graffy/starbench.git/usecases/ipr/hibench$ ./hibenchonphysix.py --commit-id 53894da48505892bfa05693a52312bacb12c70c9 --results-dir $GLOBAL_WORK_DIR/graffy/hibridon/benchmarks/starbench/hibench/$(date --iso=seconds) --arch-regexp 'intel_xeon_x5650' --cmake-path /usr/bin/cmake
 ```
 
 `hibenchonphysix.py` script launches two `sge` jobs for each machine type in `physix` cluster:
