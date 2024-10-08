@@ -236,7 +236,7 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     subprocess.run(qsub_command, cwd=this_bench_dir, check=True, shell=True)
 
 
-def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path):
+def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path, arch_regexp: str):
     """
     hibridon_version: the version of hibridon to test, in the form of a valid commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
     results_dir: where the results of the benchmark are stored (eg $GLOBAL_WORK_DIR/graffy/benchmarks/hibench)
@@ -247,7 +247,7 @@ def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path):
         'ifort'
     ]
 
-    host_groups = [
+    all_host_groups = [
         'intel_xeon_x5550',
         'intel_xeon_x5650',
         'intel_xeon_e5-2660',
@@ -261,6 +261,9 @@ def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path):
         'intel_xeon_gold_6248r',
         'amd_epyc_7282',
     ]
+    print(f'available host groups: {all_host_groups}')
+    host_groups = [host_group for host_group in all_host_groups if re.match(arch_regexp, host_group) is not None]
+    print(f'requested host groups: {host_groups}')
 
     for compiler in compilers:
         for host_group in host_groups:
@@ -283,6 +286,7 @@ def main():
     arg_parser = ArgumentParser(description='launches hibridon benchmark jobs on IPR\'s physix cluster', epilog='example:\n    --commit-id a3bed1c3ccfbca572003020d3e3d3b1ff3934fad')
     arg_parser.add_argument('--commit-id', type=str, required=True, help='the commit id of the version of code to benchmark')
     arg_parser.add_argument('--results-dir', type=Path, required=True, help='the root directory of the tree where the results of the benchmarks are stored (eg $GLOBAL_WORK_DIR/graffy/benchmarks/hibench)')
+    arg_parser.add_argument('--arch-regexp', type=str, default='.*', help='the regular expression for the architectures the benchmark is allowed to run on (eg "intel_xeon_.*"). By defauls, all available architectures are allowed.')
 
     args = arg_parser.parse_args()
     hibridon_version = args.commit_id
@@ -292,10 +296,12 @@ def main():
     # code_version='dd0f413b85cf0f727a5a4e88b2b02d75a28b377f'  # latest from branch graffy-issue51 as of 10/06/2022 00:30
 
     results_dir = Path(args.results_dir)
+    arch_regexp = args.arch_regexp
+
     if not path_is_reachable_by_compute_nodes(results_dir):
         raise ValueError('the results path is expected to be on a disk that is accessible to all cluster nodes, and it doesn\'t seem to be the case for {results_dir}')
 
-    launch_perf_jobs(hibridon_version, results_dir)
+    launch_perf_jobs(hibridon_version, results_dir, arch_regexp)
 
 
 main()

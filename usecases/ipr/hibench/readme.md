@@ -1,9 +1,21 @@
 This example illustrates how `starbench` is used at IPR (Institut de Physique de Rennes) to measure the performance of [hibridon](https://github.com/hibridon/hibridon) on IPR's cluster (`physix`)
 
+
+
+
 usage:
 
 ```sh
-graffy@physix-frontal:/opt/ipr/cluster/work.global/graffy/starbench$ ./hibenchonphysix.py --commit-id 53894da48505892bfa05693a52312bacb12c70c9 --results-dir $GLOBAL_WORK_DIR/graffy/hibridon/benchmarks/starbench/hibench/2024-10-07-16:00:00
+20241007-15:08:10 graffy@graffy-ws2:~/work/starbench/starbench.git$ rsync --exclude .git --exclude starbench.venv --exclude tmp --exclude usecases/ipr/hibench/results  -va ./ graffy@alambix.ipr.univ-rennes.fr:/opt/ipr/cluster/work.global/graffy/starbench.git/
+sending incremental file list
+
+sent 1,416 bytes  received 25 bytes  960.67 bytes/sec
+total size is 140,225  speedup is 97.31
+last command status : [0]
+```
+
+```sh
+graffy@physix-frontal:/opt/ipr/cluster/work.global/graffy/starbench.git/usecases/ipr/hibench$ ./hibenchonphysix.py --commit-id 53894da48505892bfa05693a52312bacb12c70c9 --results-dir $GLOBAL_WORK_DIR/graffy/hibridon/benchmarks/starbench/hibench/$(date --iso=seconds) --arch-regexp 'intel_xeon_x5650'
 ```
 
 `hibenchonphysix.py` script launches two `sge` jobs for each machine type in `physix` cluster:
