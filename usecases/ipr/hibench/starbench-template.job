@@ -65,7 +65,16 @@ eval $env_vars_bash_commands
 
 # launch starbench
 
-command="${starbench_path}"
+strUr1ProxyUrl='http://proxy-nt.univ-rennes1.fr:3128'
+strProxyVars=''
+strProxyVars="$strProxyVars HTTP_PROXY=$strUr1ProxyUrl"
+strProxyVars="$strProxyVars HTTPS_PROXY=$strUr1ProxyUrl"
+strProxyVars="$strProxyVars FTP_PROXY=$strUr1ProxyUrl"
+strProxyVars="$strProxyVars http_proxy=$strUr1ProxyUrl"
+strProxyVars="$strProxyVars https_proxy=$strUr1ProxyUrl"
+strProxyVars="$strProxyVars ftp_proxy=$strUr1ProxyUrl"
+
+command="$strProxyVars starbench"
 command="${command} --git-repos-url ${git_repos_url}"
 command="${command} --git-user ${git_user}"
 command="${command} --git-pass-file ${git_pass_file}"
