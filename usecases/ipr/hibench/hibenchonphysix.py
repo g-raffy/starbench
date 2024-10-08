@@ -36,113 +36,134 @@ def substitute_tags(input_file_path: Path, tags_dict: Dict[str, str], output_fil
             out_file.write(line)
 
 
-def get_host_group_info(host_group_id: HostGroupId) -> Tuple[List[HostFqdn], int]:
-    if host_group_id == 'intel_xeon_x5550':
-        hosts = ['physix48.ipr.univ-rennes1.fr']
-        num_cores = '8'
-    elif host_group_id == 'intel_xeon_x5650':
-        hosts = [
-            'physix49.ipr.univ-rennes1.fr',
-            'physix50.ipr.univ-rennes1.fr',
-            'physix51.ipr.univ-rennes1.fr',
-            'physix52.ipr.univ-rennes1.fr',
-            'physix53.ipr.univ-rennes1.fr',
-            'physix54.ipr.univ-rennes1.fr',
-            'physix55.ipr.univ-rennes1.fr',
-            'physix56.ipr.univ-rennes1.fr',
-            'physix57.ipr.univ-rennes1.fr',
-            'physix58.ipr.univ-rennes1.fr',
-            'physix59.ipr.univ-rennes1.fr',]
-        num_cores = '12'
-    elif host_group_id == 'intel_xeon_e5-2660':
-        hosts = [
-            'physix60.ipr.univ-rennes1.fr',
-            'physix61.ipr.univ-rennes1.fr',
-            'physix62.ipr.univ-rennes1.fr',
-            'physix63.ipr.univ-rennes1.fr',
+class ClusterNodeDef:
+    host_fqdn: str
+    cpu_id: str
+    num_cpus: int
 
-            'physix64.ipr.univ-rennes1.fr',
-            'physix65.ipr.univ-rennes1.fr',
-            'physix66.ipr.univ-rennes1.fr',
-            'physix67.ipr.univ-rennes1.fr',
+    def __init__(self, host_fqdn: str, cpu_id: str, num_cpus: int):
+        self.host_fqdn = host_fqdn
+        self.cpu_id = cpu_id
+        self.num_cpus = num_cpus
 
-            'physix68.ipr.univ-rennes1.fr',
-            'physix69.ipr.univ-rennes1.fr',
-            'physix70.ipr.univ-rennes1.fr',
-            'physix71.ipr.univ-rennes1.fr']
-        num_cores = '16'
-    elif host_group_id == 'intel_xeon_e5-2660v2':
-        hosts = [
-            'physix72.ipr.univ-rennes1.fr',
-            'physix73.ipr.univ-rennes1.fr',
-            'physix74.ipr.univ-rennes1.fr',
-            'physix75.ipr.univ-rennes1.fr',
 
-            'physix76.ipr.univ-rennes1.fr',
-            'physix77.ipr.univ-rennes1.fr',
-            'physix78.ipr.univ-rennes1.fr',
-            'physix79.ipr.univ-rennes1.fr',
+class CpuDef:
+    cpu_id: str
+    num_cores: int
 
-            'physix80.ipr.univ-rennes1.fr',
-            'physix81.ipr.univ-rennes1.fr',
-            'physix82.ipr.univ-rennes1.fr',
-            'physix84.ipr.univ-rennes1.fr']
-        num_cores = '20'
-    elif host_group_id == 'intel_xeon_e5-2660v4':
-        hosts = [
-            'physix84.ipr.univ-rennes1.fr',
-            'physix85.ipr.univ-rennes1.fr',
-            'physix86.ipr.univ-rennes1.fr',
-            'physix87.ipr.univ-rennes1.fr']
-        num_cores = '28'
-    elif host_group_id == 'intel_xeon_gold_6140':
-        hosts = [
-            'physix88.ipr.univ-rennes1.fr',
-            'physix89.ipr.univ-rennes1.fr']
-        num_cores = '36'
-    elif host_group_id == 'intel_xeon_gold_6154':
-        hosts = [
-            'physix90.ipr.univ-rennes1.fr']
-        num_cores = '72'
-    elif host_group_id == 'intel_xeon_gold_5222':
-        hosts = [
-            'physix92.ipr.univ-rennes1.fr']
-        num_cores = '4'
-    elif host_group_id == 'intel_xeon_gold_6226r':
-        hosts = [
-            'physix93.ipr.univ-rennes1.fr',
-            'physix94.ipr.univ-rennes1.fr']
-        num_cores = '32'
-    elif host_group_id == 'intel_xeon_gold_6240r':
-        hosts = [
-            'physix99.ipr.univ-rennes1.fr']
-        num_cores = '48'
-    elif host_group_id == 'intel_xeon_gold_6248r':
-        hosts = [
-            'physix95.ipr.univ-rennes1.fr',
-            'physix96.ipr.univ-rennes1.fr',
-            'physix97.ipr.univ-rennes1.fr',
-            'physix98.ipr.univ-rennes1.fr',
-            'physix99.ipr.univ-rennes1.fr',
-            'physix100.ipr.univ-rennes1.fr',
-            'physix101.ipr.univ-rennes1.fr',
-            'physix102.ipr.univ-rennes1.fr']
-        num_cores = '48'
-    elif host_group_id == 'amd_epyc_7282':
-        hosts = [
-            'physix12.ipr.univ-rennes1.fr',
-            'physix13.ipr.univ-rennes1.fr',
-            'physix14.ipr.univ-rennes1.fr',
-            'physix15.ipr.univ-rennes1.fr']
-        num_cores = '32'
-    else:
-        assert f"unhandled host_group_id : {host_group_id}"
-    return (hosts, num_cores)
+    def __init__(self, cpu_id: str, num_cores: int):
+        self.cpu_id = cpu_id
+        self.num_cores = num_cores
+
+
+class ClusterNodeDb:
+    cluster_nodes_defs: List[ClusterNodeDef]
+    cpu_defs: Dict[str, int]
+
+    def __init__(self):
+        self.cluster_nodes_defs = []
+        self.add_cluster_node_def(ClusterNodeDef('alambix50.ipr.univ-rennes.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('alambix75.ipr.univ-rennes.fr', 'intel_xeon_e5-2660v2', 2))
+        self.add_cluster_node_def(ClusterNodeDef('alambix103.ipr.univ-rennes.fr', 'amd_epyc_7452', 2))
+        self.add_cluster_node_def(ClusterNodeDef('alambix104.ipr.univ-rennes.fr', 'intel_xeon_gold_6248r', 2))
+        self.add_cluster_node_def(ClusterNodeDef('alambix105.ipr.univ-rennes.fr', 'intel_xeon_gold_6348', 2))
+        self.add_cluster_node_def(ClusterNodeDef('alambix106.ipr.univ-rennes.fr', 'intel_xeon_gold_6348', 2))
+        self.add_cluster_node_def(ClusterNodeDef('alambix107.ipr.univ-rennes.fr', 'intel_xeon_gold_6348', 2))
+        self.add_cluster_node_def(ClusterNodeDef('alambix108.ipr.univ-rennes.fr', 'intel_xeon_gold_6348', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix12.ipr.univ-rennes1.fr', 'amd_epyc_7282', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix13.ipr.univ-rennes1.fr', 'amd_epyc_7282', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix14.ipr.univ-rennes1.fr', 'amd_epyc_7282', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix15.ipr.univ-rennes1.fr', 'amd_epyc_7282', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix48.ipr.univ-rennes1.fr', 'intel_xeon_x5550', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix49.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix51.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix52.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix53.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix54.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix55.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix56.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix57.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix58.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix59.ipr.univ-rennes1.fr', 'intel_xeon_x5650', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix60.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix61.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix62.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix63.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix64.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix65.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix66.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix67.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix68.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix69.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix70.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix71.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix72.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix73.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix74.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix76.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix77.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix78.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix79.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix80.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix81.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix82.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix83.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v2', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix84.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v4', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix85.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v4', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix86.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v4', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix87.ipr.univ-rennes1.fr', 'intel_xeon_e5-2660v4', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix88.ipr.univ-rennes1.fr', 'intel_xeon_gold_6140', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix89.ipr.univ-rennes1.fr', 'intel_xeon_gold_6140', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix90.ipr.univ-rennes1.fr', 'intel_xeon_gold_6154', 4))
+        # self.add_cluster_node_def(ClusterNodeDef('physix91.ipr.univ-rennes1.fr', 'intel_xeon_gold_6140', 4))
+        # self.add_cluster_node_def(ClusterNodeDef('physix92.ipr.univ-rennes1.fr', 'intel_xeon_gold_5220', 1))
+        # self.add_cluster_node_def(ClusterNodeDef('physix93.ipr.univ-rennes1.fr', 'intel_xeon_gold_6226r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix94.ipr.univ-rennes1.fr', 'intel_xeon_gold_6226r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix95.ipr.univ-rennes1.fr', 'intel_xeon_gold_6248r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix96.ipr.univ-rennes1.fr', 'intel_xeon_gold_6248r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix97.ipr.univ-rennes1.fr', 'intel_xeon_gold_6248r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix98.ipr.univ-rennes1.fr', 'intel_xeon_gold_6248r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix99.ipr.univ-rennes1.fr', 'intel_xeon_gold_6240r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix100.ipr.univ-rennes1.fr', 'intel_xeon_gold_6248r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix101.ipr.univ-rennes1.fr', 'intel_xeon_gold_6248r', 2))
+        # self.add_cluster_node_def(ClusterNodeDef('physix102.ipr.univ-rennes1.fr', 'intel_xeon_gold_6248r', 2))
+
+        self.cpu_defs = {}
+        self.add_cpu_def(CpuDef('intel_xeon_x5550', 4))
+        self.add_cpu_def(CpuDef('intel_xeon_x5650', 6))
+        self.add_cpu_def(CpuDef('intel_xeon_e5-2660', 8))
+        self.add_cpu_def(CpuDef('intel_xeon_e5-2660v2', 10))
+        self.add_cpu_def(CpuDef('intel_xeon_e5-2660v4', 14))
+        self.add_cpu_def(CpuDef('intel_xeon_gold_6140', 18))
+        self.add_cpu_def(CpuDef('intel_xeon_gold_6154', 18))
+        self.add_cpu_def(CpuDef('intel_xeon_gold_5220', 4))
+        self.add_cpu_def(CpuDef('intel_xeon_gold_6226r', 16))
+        self.add_cpu_def(CpuDef('intel_xeon_gold_6248r', 24))
+        self.add_cpu_def(CpuDef('intel_xeon_gold_6348', 28))
+        self.add_cpu_def(CpuDef('amd_epyc_7282', 16))
+        self.add_cpu_def(CpuDef('amd_epyc_7452', 32))
+
+    def add_cluster_node_def(self, cluster_node_def: ClusterNodeDef):
+        self.cluster_nodes_defs.append(cluster_node_def)
+
+    def add_cpu_def(self, cpu_def: CpuDef):
+        self.cpu_defs[cpu_def.cpu_id] = cpu_def
+
+    def get_host_group_info(self, host_group_id: HostGroupId) -> Tuple[List[HostFqdn], int]:
+        hosts = [cluster_node_def.host_fqdn for cluster_node_def in self.cluster_nodes_defs if cluster_node_def.cpu_id == host_group_id]
+        num_cpus_set = set([cluster_node_def.num_cpus for cluster_node_def in self.cluster_nodes_defs if cluster_node_def.cpu_id == host_group_id])
+        assert len(num_cpus_set) > 0
+        assert len(num_cpus_set) <= 1, f'the number of cpus for the host group {host_group_id} is not homogen ({num_cpus_set})'
+        num_cpus = num_cpus_set.pop()
+        num_cores = self.cpu_defs[host_group_id].num_cores * num_cpus
+        return (hosts, num_cores)
 
 
 def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: HostGroupId, results_dir: Path, compiler_id: CompilerId):
 
-    (hosts, num_cores) = get_host_group_info(host_group_id)
+    cluster_db = ClusterNodeDb()
+
+    (hosts, num_cores) = cluster_db.get_host_group_info(host_group_id)
 
     # quick_test = 'arch4_quick'  # about 2s on a core i5 8th generation
     representative_test = 'nh3h2_qma_long'  # about 10min on a core i5 8th generation
