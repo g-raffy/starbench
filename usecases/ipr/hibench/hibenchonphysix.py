@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # this script launches jobs to run hibridon benchmarks on physix cluster for the given version of hibridon (commit number)
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from argparse import ArgumentParser
 import os
 from os import getenv, makedirs
+import shutil
 from pathlib import Path
 import subprocess
+import re
 
 HostFqdn = str  # eg 'physix90.ipr.univ-rennes1.fr'
 GitCommitTag = str  # commit number eg 'a3bed1c3ccfbca572003020d3e3d3b1ff3934fad'
@@ -18,6 +20,19 @@ def substitute_tag_with_filecontents(input_file_path: Path, tag: str, contents_f
     with open(input_file_path, 'rt', encoding='utf8') as template_file, open(output_file_path, 'wt', encoding='utf8') as out_file:
         for template_line in template_file.readlines():
             line = template_line.replace(tag, contents)
+            out_file.write(line)
+
+
+def substitute_tags(input_file_path: Path, tags_dict: Dict[str, str], output_file_path: Path):
+    with open(input_file_path, 'rt', encoding='utf8') as template_file, open(output_file_path, 'wt', encoding='utf8') as out_file:
+        for template_line in template_file.readlines():
+            line = template_line
+            for tag, value in tags_dict.items():
+                if re.match(r'<include:', tag) is not None:
+                    contents = open(value, 'rt', encoding='utf8').read()
+                else:
+                    contents = value
+                line = line.replace(tag, contents)
             out_file.write(line)
 
 
@@ -166,19 +181,29 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     makedirs(this_bench_dir, exist_ok=True)
 
     starbench_job_path = this_bench_dir / 'starbench.job'
-    this_file_path = os.path.realpath(__file__)
+    this_file_path = Path(os.path.realpath(__file__))
     scripts_dir = this_file_path.parent
+    starbench_root_path = scripts_dir.parent.parent.parent  # TODO: beurk
+
+    # create a copy of stargemm for use by the jobs (so that starbench_root_path can be modified without affecting the jobs)
+    jobs_starbench_dir = results_dir / 'starbench'  # the location of starbench source code for use by the jobs run by this command
+    shutil.copytree(starbench_root_path, jobs_starbench_dir, dirs_exist_ok=True)
 
     # create the job file (which embeds starbench.py)
-    substitute_tag_with_filecontents(input_file_path=scripts_dir / 'starbench-template.job', tag='<include:starbench.py>', contents_file=scripts_dir / 'starbench.py', output_file_path=starbench_job_path)
-    subprocess.run(f'chmod a+x {starbench_job_path}', check=True)
+    tags_dict = {
+        # '<include:starbench.py>': scripts_dir / 'starbench.py',
+        '<starbench_job_path>': str(starbench_job_path)
+    }
+    substitute_tags(input_file_path=scripts_dir / 'starbench-template.job', tags_dict=tags_dict, output_file_path=starbench_job_path)
+    subprocess.run(['chmod', 'a+x', starbench_job_path], check=True)
 
-    command = f'{starbench_job_path} "{git_repos_url}" "{git_user}" "{git_pass_file}" "{hibridon_version}" "{" ".join(cmake_options)}" "{benchmark_command}" "{env_vars_bash_commands}"'
+    command = f'{starbench_job_path} "{git_repos_url}" "{git_user}" "{git_pass_file}" "{hibridon_version}" "{" ".join(cmake_options)}" "{benchmark_command}" "{env_vars_bash_commands}" "{starbench_root_path}"'
     print(f'command = {command}')
 
     qsub_command = 'qsub'
     qsub_command += f' -pe smp {num_cores}'
     qsub_command += f' -l "hostname={"|".join(hosts)}"'
+    qsub_command += ' -S /bin/bash'
     qsub_command += ' -cwd'
     qsub_command += ' -m ae'
     qsub_command += f' -l mem_available={ram_per_core}'
@@ -187,7 +212,7 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     qsub_command += f' {command}'
     print(f'qsub_command = {qsub_command}')
 
-    subprocess.run(qsub_command, cwd=this_bench_dir, check=True)
+    subprocess.run(qsub_command, cwd=this_bench_dir, check=True, shell=True)
 
 
 def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path):
