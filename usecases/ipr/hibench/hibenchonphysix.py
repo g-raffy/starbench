@@ -173,12 +173,12 @@ def launch_job_for_host_group(hibridon_version: GitCommitTag, host_group_id: Hos
     substitute_tag_with_filecontents(input_file_path=scripts_dir / 'starbench-template.job', tag='<include:starbench.py>', contents_file=scripts_dir / 'starbench.py', output_file_path=starbench_job_path)
     subprocess.run(f'chmod a+x {starbench_job_path}', check=True)
 
-    command = f'{starbench_job_path} "{git_repos_url}" "{git_user}" "{git_pass_file}" "{hibridon_version}" "{cmake_options}" "{benchmark_command}" "{env_vars_bash_commands}"'
+    command = f'{starbench_job_path} "{git_repos_url}" "{git_user}" "{git_pass_file}" "{hibridon_version}" "{" ".join(cmake_options)}" "{benchmark_command}" "{env_vars_bash_commands}"'
     print(f'command = {command}')
 
     qsub_command = 'qsub'
     qsub_command += f' -pe smp {num_cores}'
-    qsub_command += f' -l "hostname={hosts}"'
+    qsub_command += f' -l "hostname={"|".join(hosts)}"'
     qsub_command += ' -cwd'
     qsub_command += ' -m ae'
     qsub_command += f' -l mem_available={ram_per_core}'
@@ -197,7 +197,7 @@ def launch_perf_jobs(hibridon_version: GitCommitTag, results_dir: Path):
     """
 
     compilers = [
-        'gfortran'
+        'gfortran',
         'ifort'
     ]
 
