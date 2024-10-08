@@ -160,22 +160,32 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
         def run_in_thread(popen_args: List[str], on_exit: Callable[[ProcessId, ReturnCode, RunId], None]):
             stdout = None
             stderr = None
-            if stdout_filepath is not None:
-                stdout = open(stdout_filepath, 'w', encoding='utf8')
-            if stderr_filepath is not None:
-                stderr = open(stderr_filepath, 'w', encoding='utf8')
-            env = os.environ.copy()
-            # restrict the number of threads used by openmp
-            env['OMP_NUM_THREADS'] = f'{self.num_cores_per_run}'
-            # restrict the nu,ber of threads used by intel math kernel library
-            env['MKL_NUM_THREADS'] = f'{self.num_cores_per_run}'
-            proc = subprocess.Popen(popen_args, cwd=cwd, stdout=stdout, stderr=stderr, env=env)
-            proc.wait()
-            if stderr is not None:
-                stderr.close()
-            if stdout is not None:
-                stdout.close()
-            on_exit(proc.pid, proc.returncode, run_id)
+            returncode = -1
+            pid = -1
+            streams_are_ok = True
+            try:
+                # with open(stdout_filepath, 'w', encoding='utf8') as stdout, open(stderr_filepath, 'w', encoding='utf8') as stderr:
+                if stdout_filepath is not None:
+                    stdout = open(stdout_filepath, 'w', encoding='utf8')
+                if stderr_filepath is not None:
+                    stderr = open(stderr_filepath, 'w', encoding='utf8')
+            except:
+                print(f'failed to open {stdout_filepath} or {stderr_filepath} in write mode')
+                streams_are_ok = False
+            if streams_are_ok:
+                try:
+                    env = os.environ.copy()
+                    # restrict the number of threads used by openmp
+                    env['OMP_NUM_THREADS'] = f'{self.num_cores_per_run}'
+                    # restrict the nu,ber of threads used by intel math kernel library
+                    env['MKL_NUM_THREADS'] = f'{self.num_cores_per_run}'
+                    proc = subprocess.Popen(popen_args, cwd=cwd, stdout=stdout, stderr=stderr, env=env)
+                    pid = proc.pid
+                    proc.wait()
+                    returncode = proc.returncode
+                except:
+                    print(f'command failed: {popen_args}')
+            on_exit(pid, returncode, run_id)
             return
         thread = threading.Thread(target=run_in_thread, args=(popen_args, on_exit))
         thread.start()
@@ -255,8 +265,8 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
         with self._runs_lock:
             run = Run(self._next_run_id, worker_id)
             self._next_run_id += 1
-            _run_thread = self.popen_and_call(popen_args=run_command, on_exit=self.on_exit, run_id=run.id, cwd=run_command_cwd, stdout_filepath=stdout_filepath, stderr_filepath=stderr_filepath)  # noqa:F841
             self._runs[run.id] = run
+            _run_thread = self.popen_and_call(popen_args=run_command, on_exit=self.on_exit, run_id=run.id, cwd=run_command_cwd, stdout_filepath=stdout_filepath, stderr_filepath=stderr_filepath)  # noqa:F841
 
     def run(self) -> DurationInSeconds:
         '''performs the runs of the command and returns the runs' average duration'''

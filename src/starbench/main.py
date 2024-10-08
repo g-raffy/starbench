@@ -77,7 +77,8 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, 
         max_num_cores=num_cores,
         stop_condition=StopAfterSingleRun(),
         run_command_cwd=Path('/tmp'),
-        stdout_filepath=None)
+        stdout_filepath=worker_dir / 'createdir_stdout.txt',
+        stderr_filepath=worker_dir / 'createdir_stderr.txt')
     _create_build_dir_duration = create_build_dir.run()  # noqa: F841
     # build_dir.mkdir(exist_ok=True)
 
