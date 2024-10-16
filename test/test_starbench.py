@@ -2,7 +2,8 @@ import unittest
 import logging
 from pathlib import Path
 # from cocluto import ClusterController
-from starbench.main import starbench_cmake_app, ExistingDir
+from starbench.main import starbench_cmake_app
+from starbench.existingdir import ExistingDir
 
 
 class StarbenchTestCase(unittest.TestCase):

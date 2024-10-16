@@ -4,10 +4,11 @@
 '''
 __version__ = '1.0.0'
 import threading
+import abc
 import subprocess
 import os
 import sys
-from typing import List, Dict, Optional, Tuple, Callable
+from typing import List, Dict, Optional, Tuple, Callable, Any
 from datetime import datetime
 from pathlib import Path
 from abc import ABC, abstractmethod
@@ -21,6 +22,15 @@ except ImportError:
 assert sys.version_info >= (3, 5, 0), 'this code requires at least python 3.5'  # type hints in arguments
 
 
+class Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(type(cls), cls).__call__(*args, **kwargs)  # pylint: disable=bad-super-call, no-member
+        return cls._instances[cls]
+
+
 class StarBenchException(Exception):
     '''base exception for user errors detected by starbench'''
 
@@ -31,7 +41,95 @@ DurationInSeconds = float
 ProcessId = int
 ReturnCode = int
 Url = str
-GitCommitId = str
+UserId = str  # user login, eg graffy
+
+
+class IPasswordProvider(abc.ABC):
+    """ provides a password
+    """
+    def __init__(self):
+        pass
+
+    @abc.abstractmethod
+    def get_password(self) -> str:
+        pass
+
+
+PasswordProviderId = str
+PasswordProviderParams = Dict[str, Any]
+
+
+class IPasswordProviderCreator(abc.ABC):
+    password_provider_id: PasswordProviderId
+
+    def __init__(self, tree_creator_id: PasswordProviderId):
+        self.tree_creator_id = tree_creator_id
+
+    def get_password_provider_id(self) -> PasswordProviderId:
+        return self.tree_creator_id
+
+    @abc.abstractmethod
+    def create_password_provider(self, params: PasswordProviderParams) -> IPasswordProvider:
+        pass
+
+
+class PasswordProviderFactory(metaclass=Singleton):
+
+    password_provider_creators: Dict[PasswordProviderId, IPasswordProviderCreator]
+
+    def __init__(self):
+        self.password_provider_creators = {}
+
+    def register_password_provider_creator(self, password_provider_creator: IPasswordProviderCreator):
+        self.password_provider_creators[password_provider_creator.get_password_provider_id()] = password_provider_creator
+
+    def create_password_provider(self, tree_creator_id: PasswordProviderId, params: PasswordProviderParams) -> IPasswordProvider:
+        return self.password_provider_creators[tree_creator_id].create_password_provider(params)
+
+
+class IFileTreeProvider(abc.ABC):
+    """
+    populates a file tree
+    """
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def get_source_tree_path(self) -> Path:
+        pass
+
+
+FileTreeProviderId = str
+JsonString = str
+FileTreeProviderParams = Dict[str, Any]
+
+
+class IFileTreeProviderCreator(abc.ABC):
+    tree_creator_id: FileTreeProviderId
+
+    def __init__(self, tree_creator_id: FileTreeProviderId):
+        self.tree_creator_id = tree_creator_id
+
+    def get_tree_creator_id(self) -> FileTreeProviderId:
+        return self.tree_creator_id
+
+    @abc.abstractmethod
+    def create_tree_creator(self, params: FileTreeProviderParams) -> IFileTreeProvider:
+        pass
+
+
+class FileTreeProviderCreatorRegistry(metaclass=Singleton):
+
+    tree_creator_creators: Dict[FileTreeProviderId, IFileTreeProviderCreator]
+
+    def __init__(self):
+        self.tree_creator_creators = {}
+
+    def register_tree_creator_creator(self, tree_creator_creator: IFileTreeProviderCreator):
+        self.tree_creator_creators[tree_creator_creator.get_tree_creator_id()] = tree_creator_creator
+
+    def create_tree_creator(self, tree_creator_id: FileTreeProviderId, params: FileTreeProviderParams) -> IFileTreeProvider:
+        return self.tree_creator_creators[tree_creator_id].create_tree_creator(params)
 
 
 class Run():
@@ -169,7 +267,7 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
                     stdout = open(stdout_filepath, 'w', encoding='utf8')
                 if stderr_filepath is not None:
                     stderr = open(stderr_filepath, 'w', encoding='utf8')
-            except:
+            except:  # pylint: disable=bare-except  # noqa: E722
                 print(f'failed to open {stdout_filepath} or {stderr_filepath} in write mode')
                 streams_are_ok = False
             if streams_are_ok:
@@ -183,7 +281,7 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
                     pid = proc.pid
                     proc.wait()
                     returncode = proc.returncode
-                except:
+                except:  # pylint: disable=bare-except  # noqa: E722
                     print(f'command failed: {popen_args}')
             on_exit(pid, returncode, run_id)
             return

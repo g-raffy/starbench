@@ -6,8 +6,7 @@ a tool to benchmark a git cmake application using embarassingly parallel runs
 In order to measure the performance of the code in *hpc* (high performance computing) environment, `starbench` is designed to make all the cores busy. For this, it uses the same technique as in `hpl`'s `stardgemm` test (that's where the 'star' prefix comes from): the same code is run on each `CPU` core. This way, we performances measures are expected to be more realistic, as the cores won't benefit from the unrealistic boost provided by the memory cache of unused cores.
 
 If the user provides:
-- the `url` of the repository
-- the commit number of the version to test
+- the source tree provider
 - the number of cores the benchmark should use (usually the number of cores of the machine that executes the benchmark)
 - the benchmark command to use
 
@@ -18,6 +17,23 @@ then `starbench` will do the rest:
 4. build the code
 5. run the benchmark command for each core
 6. output the average duration of the benchmark
+
+## available source tree providers
+
+
+- `git-cloner`: populates the source tree from a git repository (eg on gihub). The parameters are:
+  - `repos-url`: the `url` of the repository
+  - `code-version`: the commit number of the version to test
+  - `src-dir`: the directory that needs to be populated with the source code using git clone
+  - `git-user`: the user id, in case the repository requires authentication
+  - `password-provider`: the password provider, in case the repository requires authentication
+- `existing-dir`: use an existing directory containing the source code. The parameters are:
+  - `dir-path`: the directory containing the source code already populated
+
+## available password providers
+
+- `password-file`: the password is retreived from a file storing the password in plain text
+    - `password-file-path`: the path of the file containing the password in plain ascii text
 
 ## example
 
@@ -43,7 +59,12 @@ Building wheels for collected packages: starbench
 Successfully built starbench
 Installing collected packages: starbench
 Successfully installed starbench-1.0.0
-bob@bob-ws2:~/work/starbench$ starbench --git-repos-url https://github.com/hibridon/hibridon --code-version a3bed1c3ccfbca572003020d3e3d3b1ff3934fad --git-user g-raffy --git-pass-file "$HOME/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat" --num-cores 2 --output-dir=/tmp/hibench --cmake-path=/opt/cmake/cmake-3.23.0/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
+bob@bob-ws2:~/work/starbench$ starbench --source-tree-provider '{"type": "git-cloner", "repos-url": "https://github.com/hibridon/hibridon", "src-dir": "/tmp/hibench/source.git", "code-version": "a3bed1c3ccfbca572003020d3e3d3b1ff3934fad", "git-user": "g-raffy", "password-provider": {"type": "password-file", "password-file-path": "/home/graffy/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"}}' --num-cores 2 --output-dir=/tmp/hibench --cmake-path=/usr/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
+```
+
+a simpler version, assuming hibridon source code is already available in `/tmp/hibench/source.git`
+```sh
+bob@bob-ws2:~/work/starbench$ starbench --source-tree-provider '{"type": "existing-dir", "dir-path": "/tmp/hibench/source.git"}' --num-cores 2 --output-dir=/tmp/hibench --cmake-path=/usr/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
 ```
 
 ## how to test
