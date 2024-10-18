@@ -354,11 +354,11 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
         stdout_filepath = None
         if self.stdout_filepath is not None:
             stdout_filepath = CommandPerfEstimator._interpret_tags(str(self.stdout_filepath), tags_value)
-            Path(stdout_filepath).parent.mkdir(exist_ok=True)
+            Path(stdout_filepath).parent.mkdir(exist_ok=True, parents=True)
         stderr_filepath = None
         if self.stderr_filepath is not None:
             stderr_filepath = CommandPerfEstimator._interpret_tags(str(self.stderr_filepath), tags_value)
-            Path(stderr_filepath).parent.mkdir(exist_ok=True)
+            Path(stderr_filepath).parent.mkdir(exist_ok=True, parents=True)
 
         with self._runs_lock:
             run = Run(self._next_run_id, worker_id)
