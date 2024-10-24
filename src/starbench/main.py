@@ -6,6 +6,7 @@ __version__ = '1.0.1'
 import argparse
 import json
 import os
+import pandas as pd
 from typing import List, Optional
 from pathlib import Path
 from .core import CommandPerfEstimator, StopAfterSingleRun, FileTreeProviderCreatorRegistry, IFileTreeProvider, PasswordProviderFactory
@@ -14,10 +15,11 @@ from .existingdir import ExistingDirCreator
 from .gitcloner import GitClonerCreator
 
 
-def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, num_cores: int, benchmark_command: List[str], cmake_options: Optional[List[str]] = None, cmake_exe_location: Path = None):
+def starbench_cmake_app(source_code_provider: IFileTreeProvider, output_measurements_file_path: Path, tmp_dir: Path, num_cores: int, benchmark_command: List[str], cmake_options: Optional[List[str]] = None, cmake_exe_location: Path = None):
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
+    measurements = pd.DataFrame(columns=['worker_id', 'duration'])
     src_dir = source_code_provider.get_source_tree_path()
     # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
     worker_dir = tmp_dir / 'worker<worker_id>'
@@ -77,6 +79,8 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, tmp_dir: Path, 
         stderr_filepath=worker_dir / 'bench_stderr.txt')
     mean_duration = bench.run()
     print(f'duration : {mean_duration:.3f} s' % ())
+    measurements.loc[len(measurements)] = {'worker_id': '<average>', 'duration': mean_duration}
+    measurements.to_csv(output_measurements_file_path, sep='\t')
 
 
 def main():
@@ -106,6 +110,7 @@ def main():
     parser.add_argument('--cmake-path', type=Path, help='the path to the cmake executable to use in case a specific cmake is wanted')
     parser.add_argument('--cmake-option', type=str, action='append', help='additional option passed to cmake in the configure step (use this flag multiple times if you need more than one cmake option)')
     parser.add_argument('--benchmark-command', required=True, type=str, help='the command to benchmark')
+    parser.add_argument('--output-measurements', type=Path, required=True, help='the path to the output tsv file containing the measurements table')
     args = parser.parse_args()
 
     # git_user = args.git_user
@@ -123,7 +128,7 @@ def main():
     source_tree_provider = tree_creator_factory.create_tree_creator(source_tree_provider_params['type'], source_tree_provider_params)
 #    source_tree_provider = GitRepos(git_repos_url=git_repos_url, code_version=args.code_version, git_user=git_user, git_password=git_password, src_dir=args.output_dir / 'source.git')
 
-    starbench_cmake_app(source_tree_provider, tmp_dir=args.output_dir, num_cores=args.num_cores, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '), cmake_exe_location=args.cmake_path)
+    starbench_cmake_app(source_tree_provider, output_measurements_file_path=args.output_measurements, tmp_dir=args.output_dir, num_cores=args.num_cores, cmake_options=args.cmake_option, benchmark_command=args.benchmark_command.split(' '), cmake_exe_location=args.cmake_path)
 
 
 if __name__ == '__main__':
