@@ -54,7 +54,9 @@ class GitClonerCreator(IFileTreeProviderCreator):
         repos_url = params['repos-url']
         code_version = params.get('code-version')
         git_user = params.get('git-user')
-        password_provider_params = params['password-provider']
-        password_provider = PasswordProviderFactory().create_password_provider(password_provider_params['type'], password_provider_params)
+        password_provider_params = params.get('password-provider')
+        password_provider = None
+        if password_provider_params is not None:
+            password_provider = PasswordProviderFactory().create_password_provider(password_provider_params['type'], password_provider_params)
         src_dir = Path(params['src-dir'])
         return GitCloner(repos_url, src_dir, code_version, git_user, password_provider)

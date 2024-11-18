@@ -2,7 +2,7 @@
 '''starbench is an application that is able to measure the execution time of a user software suite in various conditions (different build modes and different execution modes)
 
 '''
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 import argparse
 import json
 import os
