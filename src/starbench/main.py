@@ -2,7 +2,7 @@
 '''starbench is an application that is able to measure the execution time of a user software suite in various conditions (different build modes and different execution modes)
 
 '''
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 import argparse
 import json
 import os
@@ -19,7 +19,7 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, output_measurem
     """
     tests_to_run : regular expression as understood by ctest's -L option. eg '^arch4_quick$'
     """
-    measurements = pd.DataFrame(columns=['worker_id', 'duration'])
+    measurements = pd.DataFrame({'run_id': pd.Series(dtype='int'), 'duration': pd.Series(dtype='float')})
     src_dir = source_code_provider.get_source_tree_path()
     # we need one build for each parallel run, otherwise running ctest on parallel would overwrite the same file, which causes the test to randomly fail depnding on race conditions
     worker_dir = tmp_dir / 'worker<worker_id>'
@@ -77,9 +77,10 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, output_measurem
         run_command_cwd=build_dir,
         stdout_filepath=worker_dir / 'bench_stdout.txt',
         stderr_filepath=worker_dir / 'bench_stderr.txt')
-    mean_duration = bench.run()
-    print(f'duration : {mean_duration:.3f} s' % ())
-    measurements.loc[len(measurements)] = {'worker_id': '<average>', 'duration': mean_duration}
+    starbench_results = bench.run()
+    print(f'duration : {starbench_results.get_average_duration():.3f} s' % ())
+    for run_id in starbench_results.durations.keys():
+        measurements.loc[len(measurements)] = {'run_id': f'{run_id}', 'duration': starbench_results.durations[run_id]}
     measurements.to_csv(output_measurements_file_path, sep='\t')
 
 

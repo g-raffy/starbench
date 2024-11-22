@@ -8,10 +8,14 @@ import abc
 import subprocess
 import os
 import sys
-from typing import List, Dict, Optional, Tuple, Callable, Any
+import statistics
+import pandas as pd
+from typing import List, Dict, Optional, Callable, Any, Tuple
 from datetime import datetime
 from pathlib import Path
 from abc import ABC, abstractmethod
+import logging
+
 # from typing import ForwardRef
 try:
     from typing import ForwardRef  # type: ignore pylint: disable=ungrouped-imports
@@ -42,6 +46,41 @@ ProcessId = int
 ReturnCode = int
 Url = str
 UserId = str  # user login, eg graffy
+
+
+class StarbenchResults():
+    """measured durations on a starbench benchmark
+    """
+    durations: Dict[RunId, float]  # the benchmard duration for each worker id
+
+    def __init__(self, output_measurements_file_path: Optional[Path] = None):
+        self.durations = {}
+        if output_measurements_file_path:
+            logging.debug('output_measurements_file_path = %s', output_measurements_file_path)
+            df = pd.read_csv(output_measurements_file_path, sep='\t')
+            for index, row in df.iterrows():
+                logging.debug('row = %s', row)
+                run_id = row['run_id']
+                if run_id != '<average>':
+                    self.durations[run_id] = row["duration"]
+
+    def get_num_runs(self):
+        return len(self.durations)
+
+    def add_measurement(self, run_id: RunId, duration: float):
+        self.durations[run_id] = duration
+
+    def get_average_duration(self) -> float:
+        return statistics.mean(self.durations.values())
+
+    def get_duration_stddev(self) -> float:
+        return statistics.stdev(self.durations.values())
+
+    def get_median_duration(self) -> float:
+        return statistics.median(self.durations.values())
+
+    def get_duration_range(self) -> Tuple[float, float]:
+        return min(self.durations.values()), max(self.durations.values())
 
 
 class IPasswordProvider(abc.ABC):
@@ -198,7 +237,7 @@ class StopWhenConverged(IStarBencherStopCondition):
 
     def should_stop(self, star_bencher: CommandPerfEstimator) -> bool:
         do_stop = False
-        mean_duration, _num_runs = star_bencher.get_run_mean_duration()
+        mean_duration, _num_runs = star_bencher.get_runs_stats()
         print(f'mean_duration = {mean_duration}')
         if self._last_mean_duration is not None:
             diff = abs(mean_duration - self._last_mean_duration)
@@ -290,18 +329,18 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
         # returns immediately after the thread starts
         return thread
 
-    def get_run_mean_duration(self) -> Tuple[DurationInSeconds, int]:
+    def get_runs_stats(self) -> StarbenchResults:
         """returns the average duration of all completed runs of this CommandPerfEstimator instance
         """
-        duration_sums = 0.0  # in python3.6+, replace with duration_sums: float = 0.0
+        results = StarbenchResults()
         num_finished_runs = 0  # in python3.6+, replace with num_finished_runs: int = 0
         with self._runs_lock:
             for run in self._runs.values():
                 if run.has_finished():
                     num_finished_runs += 1
-                    duration_sums += run.get_duration()
+                    results.add_measurement(run.id, run.get_duration())
         assert num_finished_runs > 0
-        return duration_sums / num_finished_runs, num_finished_runs
+        return results
 
     def _all_runs_have_finished(self):
         with self._runs_lock:
@@ -366,7 +405,7 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
             self._runs[run.id] = run
             _run_thread = self.popen_and_call(popen_args=run_command, on_exit=self.on_exit, run_id=run.id, cwd=run_command_cwd, stdout_filepath=stdout_filepath, stderr_filepath=stderr_filepath)  # noqa:F841
 
-    def run(self) -> DurationInSeconds:
+    def run(self) -> StarbenchResults:
         '''performs the runs of the command and returns the runs' average duration'''
         print(f"executing the following command in parallel ({self.num_parallel_runs} parallel runs) : '{str(self.run_command)}'")
         for worker_id in range(self.num_parallel_runs):
@@ -377,6 +416,6 @@ class CommandPerfEstimator():  # (false positive) pylint: disable=function-redef
             workers_success = [run.return_code == 0 for run in self._runs.values()]
             if not all(workers_success):
                 raise StarBenchException(f'at least one run failed (workers_success = {workers_success})')
-        mean_duration, num_runs = self.get_run_mean_duration()
-        print(f'mean duration : {mean_duration:.3f} s ({num_runs} runs)')
-        return mean_duration
+        starbench_results = self.get_runs_stats()
+        print(f'mean duration : {starbench_results.get_average_duration():.3f} s ({starbench_results.get_num_runs()} runs)')
+        return starbench_results
