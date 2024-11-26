@@ -87,7 +87,7 @@ def starbench_cmake_app(source_code_provider: IFileTreeProvider, output_measurem
 def main():
     '''main program'''
 
-    example_output_dir = Path('/tmp/hibench')
+    example_output_dir = Path('/tmp/hibridon')
     example_src_dir = example_output_dir / 'source.git'
     example_password_provider = f'{{"type": "password-file", "password-file-path": "{os.getenv("HOME")}/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"}}'
     example_source_tree_provider = f'{{"type": "git-cloner", "repos-url": "https://github.com/hibridon/hibridon", "src-dir": "{example_src_dir}", "code-version": "a3bed1c3ccfbca572003020d3e3d3b1ff3934fad", "git-user": "g-raffy", "password-provider": {example_password_provider}}}'

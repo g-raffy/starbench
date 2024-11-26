@@ -59,12 +59,12 @@ Building wheels for collected packages: starbench
 Successfully built starbench
 Installing collected packages: starbench
 Successfully installed starbench-1.0.0
-bob@bob-ws2:~/work/starbench$ starbench --source-tree-provider '{"type": "git-cloner", "repos-url": "https://github.com/hibridon/hibridon", "src-dir": "/tmp/hibench/source.git", "code-version": "a3bed1c3ccfbca572003020d3e3d3b1ff3934fad", "git-user": "g-raffy", "password-provider": {"type": "password-file", "password-file-path": "/home/graffy/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"}}' --num-cores 2 --output-dir=/tmp/hibench --cmake-path=/usr/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
+bob@bob-ws2:~/work/starbench$ starbench --source-tree-provider '{"type": "git-cloner", "repos-url": "https://github.com/hibridon/hibridon", "src-dir": "/tmp/hibridon/source.git", "code-version": "a3bed1c3ccfbca572003020d3e3d3b1ff3934fad", "git-user": "g-raffy", "password-provider": {"type": "password-file", "password-file-path": "/home/graffy/.github/personal_access_tokens/bench.hibridon.cluster.ipr.univ-rennes1.fr.pat"}}' --num-cores 2 --output-dir=/tmp/hibridon --cmake-path=/usr/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
 ```
 
-a simpler version, assuming hibridon source code is already available in `/tmp/hibench/source.git`
+a simpler version, assuming hibridon source code is already available in `/tmp/hibridon/source.git`
 ```sh
-bob@bob-ws2:~/work/starbench$ starbench --source-tree-provider '{"type": "existing-dir", "dir-path": "/tmp/hibench/source.git"}' --num-cores 2 --output-dir=/tmp/hibench --cmake-path=/usr/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
+bob@bob-ws2:~/work/starbench$ starbench --source-tree-provider '{"type": "existing-dir", "dir-path": "/tmp/hibridon/source.git"}' --num-cores 2 --output-dir=/tmp/hibridon --cmake-path=/usr/bin/cmake --cmake-option=-DCMAKE_BUILD_TYPE=Release --cmake-option=-DBUILD_TESTING=ON --benchmark-command='ctest --output-on-failure -L ^arch4_quick$'
 ```
 
 ## how to test
